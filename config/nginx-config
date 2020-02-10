@@ -1,20 +1,18 @@
-# Add the following to your main nginx.conf (inside the http block)
+# - Add the following to your main nginx.conf (inside the http block)
 #    map $http_upgrade $connection_upgrade {
 #        default upgrade;
 #        '' close;
 #    }
+#
+# - Add "cloudless.conf" to /etc/nginx
+
+# The following will set up a default virtual server that just listens to cloudless
+# soft-link this file in your /etc/nginx/sites-enabled
+# Alternatively, include /etc/nginx/cloudless.conf in your own virtual server
 
 server {
     listen 80 default_server;
     listen [::]:80 default_server;
     server_name _;
-    location /seamless/protocol/1/ {
-        proxy_http_version 1.1;         
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection $connection_upgrade; 
-        proxy_pass http://localhost:3124/;
-        proxy_redirect ~*/(.+)$ /seamless/protocol/1/$1;
-    }   
+    include /etc/nginx/cloudless.conf;
 }
