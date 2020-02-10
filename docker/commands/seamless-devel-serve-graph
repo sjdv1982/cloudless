@@ -4,20 +4,37 @@ set -u -e
 # - Seamless has access to the Docker daemon, so it can launch its own Docker
 #    containers via the Docker transformer. This works only under Linux.
 #    NOTE: THIS IS A BIG SECURITY HOLE, IT CAN GIVE ROOT ACCESS TO YOUR SYSTEM
+#  - For now, direct Redis access is assumed, via the Redis port 6379
+#    NOTE: THIS IS A BIG SECURITY HOLE, IT ALLOWS CORRUPTION AND SNOOPING OF THE DATABASE
+#  - The share server listens on 0.0.0.0, because I can't find out 
+#      how Docker Bridge rewrites the IP address origin
+#    NOTE: THIS IS A BIG SECURITY HOLE IF YOUR EPHEMERAL PORTS ARE VISIBLE TO THE OUTSIDE
 
 seamlessdir=`python3 -c 'import seamless,os;print(os.path.dirname(seamless.__file__))'`/../
 
-docker run --rm \
+bridge_ip=$(docker network inspect bridge \
+  | python3 -c '''
+import json, sys 
+bridge = json.load(sys.stdin)
+print(bridge[0]["IPAM"]["Config"][0]["Gateway"])
+''')
+
+name=$1
+c=$(docker run --rm \
+  --detach \
+  --name $name \
   -v $seamlessdir:/seamless \
   -e "PYTHONPATH=/seamless" \
+  -e "REDIS_HOST="$bridge_ip \
+  -e "SHARESERVER_ADDRESS=0.0.0.0" \
   --expose 5813 \
   --expose 5138 \
+  -P \
   -v `pwd`:/cwd \
   -v /var/run/docker.sock:/var/run/docker.sock \
   --workdir /cwd \
-  --link redis-container \
   -u jovyan \
-  seamless-devel python3 -u /home/jovyan/seamless-scripts/serve-graph.py $*
+  seamless-devel python3 -u /home/jovyan/seamless-scripts/serve-graph.py --redis $2 \
+)
 
-echo $c
-docker port $c
+docker port $name
