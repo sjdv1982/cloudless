@@ -34,7 +34,7 @@ c=$(docker run --rm \
   -v /var/run/docker.sock:/var/run/docker.sock \
   --workdir /cwd \
   -u jovyan \
-  seamless-devel python3 -u /home/jovyan/seamless-scripts/serve-graph.py --redis $2 \
+  seamless-devel python3 -u /home/jovyan/seamless-scripts/serve-graph.py $2 --redis \
 )
 
 docker port $name

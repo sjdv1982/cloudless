@@ -15,6 +15,9 @@ https://github.com/oetiker/aio-reverse-proxy/blob/master/paraview-proxy.py'
 (Copyright (c) 2018 Tobias Oetiker, MIT License)
 """
 
+currdir = os.path.split(os.path.abspath(__file__))[0]
+os.chdir(currdir)
+
 cloudless_port = 3124
 
 rest_server = "http://localhost"
