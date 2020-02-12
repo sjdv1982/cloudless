@@ -1,3 +1,6 @@
+# Awaiting response on https://github.com/jupyter/jupyter_console/issues/207
+exit 1
+
 set -u -e
 
 # - Current directory is mounted to /cwd, and the command is executed there
@@ -33,9 +36,10 @@ c=$(docker run --rm \
   -v `pwd`:/cwd \
   --workdir /cwd \
   -u jovyan \
-  seamless-devel python3 -u /home/jovyan/seamless-scripts/serve-graph.py \
+  seamless-devel jupyter console /home/jovyan/seamless-scripts/serve-graph.py -- \
     $2 --redis --ncores 0 \
     --communion_id $name \
+    --interactive \
 )
 
 docker port $name
