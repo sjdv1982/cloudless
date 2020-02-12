@@ -28,6 +28,7 @@ c=$(docker run --rm \
   -e "PYTHONPATH=/seamless" \
   -e "REDIS_HOST="$bridge_ip \
   -e "SHARESERVER_ADDRESS=0.0.0.0" \
+  -e "SEAMLESS_COMMUNION_ID="$name \
   -e "SEAMLESS_COMMUNION_INCOMING="$communion_incoming \
   --expose 5813 \
   --expose 5138 \
@@ -35,7 +36,9 @@ c=$(docker run --rm \
   -v `pwd`:/cwd \
   --workdir /cwd \
   -u jovyan \
-  seamless-devel python3 -u /home/jovyan/seamless-scripts/serve-graph.py $2 --redis --ncores 0 \
+  seamless-devel python3 -u /home/jovyan/seamless-scripts/serve-graph.py \
+    $2 --redis --ncores 0 \
+    --communion_id $name \
 )
 
 docker port $name

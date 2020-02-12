@@ -1,0 +1,34 @@
+set -u -e
+
+# interactive version of seamless-devel-serve-graph-thin
+
+seamlessdir=`python3 -c 'import seamless,os;print(os.path.dirname(seamless.__file__))'`/../
+
+bridge_ip=$(docker network inspect bridge \
+  | python3 -c '''
+import json, sys 
+bridge = json.load(sys.stdin)
+print(bridge[0]["IPAM"]["Config"][0]["Gateway"])
+''')
+
+name=$1
+communion_incoming=${SEAMLESS_COMMUNION_INCOMING}
+docker run --rm \
+  -it \
+  --name $name \
+  -v $seamlessdir:/seamless \
+  -e "PYTHONPATH=/seamless" \
+  -e "REDIS_HOST="$bridge_ip \
+  -e "SHARESERVER_ADDRESS=0.0.0.0" \
+  -e "SEAMLESS_COMMUNION_ID="$name \
+  -e "SEAMLESS_COMMUNION_INCOMING="$communion_incoming \
+  --expose 5813 \
+  --expose 5138 \
+  -P \
+  -v `pwd`:/cwd \
+  --workdir /cwd \
+  -u jovyan \
+  seamless-devel ipython3 -i /home/jovyan/seamless-scripts/serve-graph.py -- \
+    --interactive \
+    $2 --redis --ncores 0 \
+    --communion_id $name

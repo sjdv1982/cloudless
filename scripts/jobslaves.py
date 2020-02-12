@@ -35,10 +35,10 @@ def start_jobslave(name):
         print(output, file=sys.stderr)
         raise RuntimeError("Error code {}".format(err))
 
-def main():
+def main(nslaves):
     bridge_ip = get_bridge_ip()
     var = ""
-    for n in range(4):
+    for n in range(nslaves):
         name = "{}-{}".format(name_template, n+1)
         start_jobslave(name)
         ephemeral_port = get_ephemeral_port(name)
@@ -49,4 +49,6 @@ def main():
     print(var)
 
 if __name__ == "__main__":
-    main()
+    import sys
+    nslaves=int(sys.argv[1])
+    main(nslaves)

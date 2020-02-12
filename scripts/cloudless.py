@@ -1,5 +1,4 @@
 from aiohttp import web
-from aiohttp import client
 import aiohttp
 import asyncio
 import pprint
@@ -34,13 +33,12 @@ instances = {
 }
 
 
-async def reverse_proxy_websocket(req, port, tail):
+async def reverse_proxy_websocket(req, client, port, tail):
     ws_server = web.WebSocketResponse()
     await ws_server.prepare(req)
     #logger.info('##### WS_SERVER %s' % pprint.pformat(ws_server))
-
-    client_session = aiohttp.ClientSession(cookies=req.cookies)
-    async with client_session.ws_connect(
+    
+    async with client.ws_connect(
         "{}:{}/{}".format(update_server, port, tail),
     ) as ws_client:
         #logger.info('##### WS_CLIENT %s' % pprint.pformat(ws_client))
@@ -68,7 +66,7 @@ async def reverse_proxy_websocket(req, port, tail):
 
         return ws_server
 
-async def reverse_proxy_http(req, port, tail):    
+async def reverse_proxy_http(req, client, port, tail):    
     reqH = req.headers.copy()
     async with client.request(
         req.method,"{}:{}/{}".format(rest_server, port, tail),
@@ -104,12 +102,13 @@ async def reverse_proxy(req):
         return web.Response(status=404,text="Unknown instance")
 
     update_port, rest_port, _, _ = instances[instance]
-    if reqH.get('connection','').lower() == 'upgrade' \
-      and reqH.get('upgrade', '').lower() == 'websocket' \
-      and req.method == 'GET':
-        return await reverse_proxy_websocket(req, update_port, tail)
-    else:
-        return await reverse_proxy_http(req, rest_port, tail)
+    async with aiohttp.ClientSession(cookies=req.cookies) as client:
+        if reqH.get('connection','').lower() == 'upgrade' \
+        and reqH.get('upgrade', '').lower() == 'websocket' \
+        and req.method == 'GET':
+            return await reverse_proxy_websocket(req, client, update_port, tail)
+        else:
+            return await reverse_proxy_http(req, client, rest_port, tail)
 
 async def connect_instance(req):
     req = req.rel_url
@@ -237,14 +236,15 @@ async def browser_launch_instance(req):
         t = time.time()
         while 1:
             try:
-                async with client.request(
-                    "GET","{}:{}/".format(rest_server, rest_port)
-                ) as response:
-                    if response.status < 400:
-                        await asyncio.sleep(2)
-                        break
-                    if time.time() - t > 10:
-                        break
+                async with aiohttp.ClientSession(cookies=req.cookies) as client:
+                    async with client.get(
+                        "{}:{}/".format(rest_server, rest_port)
+                    ) as response:
+                        if response.status < 400:
+                            await asyncio.sleep(2)
+                            break
+                        if time.time() - t > 10:
+                            break
             except aiohttp.client_exceptions.ClientError:
                 pass
             await asyncio.sleep(0.5)
