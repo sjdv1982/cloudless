@@ -32,6 +32,7 @@ c=$(docker run --rm \
   -P \
   -v `pwd`:/cwd \
   -v /var/run/docker.sock:/var/run/docker.sock \
+  --group-add $(getent group docker | cut -d: -f3) \
   --workdir /cwd \
   -u jovyan \
   seamless-devel python3 -u /home/jovyan/seamless-scripts/serve-graph.py $2 --redis \
