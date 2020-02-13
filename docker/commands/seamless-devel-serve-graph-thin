@@ -17,6 +17,8 @@ print(bridge[0]["IPAM"]["Config"][0]["Gateway"])
 ''')
 
 name=$1
+f=$2
+shift 2
 communion_incoming=${SEAMLESS_COMMUNION_INCOMING}
 c=$(docker run --rm \
   --detach \
@@ -34,8 +36,9 @@ c=$(docker run --rm \
   --workdir /cwd \
   -u jovyan \
   seamless-devel python3 -u /home/jovyan/seamless-scripts/serve-graph.py \
-    $2 --redis --ncores 0 \
+    $f --redis --ncores 0 \
     --communion_id $name \
+    $@ \
 )
 
 docker port $name

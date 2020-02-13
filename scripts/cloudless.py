@@ -29,7 +29,7 @@ for f in glob.glob("../graphs/*.seamless"):
     services[service_name] = service_dir, service_file
 
 instances = {
-    #1: (32876, 32875, None, None)
+    #1: (32876, 32875, None, None, False)
 }
 
 
@@ -101,7 +101,7 @@ async def reverse_proxy(req):
     if instance not in instances:
         return web.Response(status=404,text="Unknown instance")
 
-    update_port, rest_port, _, _ = instances[instance]
+    update_port, rest_port, _, _, _ = instances[instance]
     async with aiohttp.ClientSession(cookies=req.cookies) as client:
         if reqH.get('connection','').lower() == 'upgrade' \
         and reqH.get('upgrade', '').lower() == 'websocket' \
@@ -151,13 +151,13 @@ async def connect_instance(req):
             )
         return web.Response(status=200)
 
-    instances[instance] = update_port, rest_port, None, None
+    instances[instance] = update_port, rest_port, None, None, False
     return web.Response(status=200)
 
 class LaunchError(Exception):
     pass
 
-def launch(service_name):
+def launch(service_name, with_status=False):
     while 1:
         instance = random.choice(range(1000000, 10000000))
         container = "cloudless-{}".format(instance)
@@ -166,13 +166,15 @@ def launch(service_name):
     service_dir, service_file = services[service_name]
     cwd = os.getcwd()
     launch_command = os.path.abspath("../docker/commands/seamless-devel-serve-graph")
-    
     try:
-        os.chdir(service_dir)
+        os.chdir(service_dir)        
         cmd = "{} {} {}".format(launch_command, container, service_file)
+        if with_status:
+            d = "/home/jovyan/seamless-tests/highlevel/visualize-graph/status-visualization-graph"        
+            cmd += " --status-graph {0}.seamless --add-zip {0}.zip".format(d)
         err, output = subprocess.getstatusoutput(cmd)        
         if err:
-            raise LaunchError("Launch output:\n{}".format(err))
+            raise LaunchError("Launch output:\n{}\n{}".format(err, output))
         update_port, rest_port = None, None
         for l in output.splitlines():
             fields = l.split("->")
@@ -194,7 +196,7 @@ def launch(service_name):
             raise LaunchError("Seamless shareserver websocket update port was not bound")
         if rest_port is None:
             raise LaunchError("Seamless shareserver REST port was not bound")
-        instances[instance] = update_port, rest_port, container, service_name
+        instances[instance] = update_port, rest_port, container, service_name, with_status
     finally:
         os.chdir(cwd)
     return instance
@@ -203,6 +205,9 @@ def launch(service_name):
 async def launch_instance(req):    
     data = await req.post()
     service = data.get("service", None)
+    with_status = data.get("with_status", None)
+    if with_status == "1":
+        with_status = True
     if service is None:
         return web.Response(
             status=400,
@@ -214,7 +219,7 @@ async def launch_instance(req):
             text="Unknown service"
         )
     try:
-        instance = launch(service)
+        instance = launch(service, with_status)
     except LaunchError as exc:
         return web.Response(
             status=500,
@@ -232,7 +237,7 @@ async def launch_instance(req):
 async def browser_launch_instance(req):
     result = await launch_instance(req)
     if isinstance(result, int):   # instance
-        _, rest_port, _, _ = instances[result]
+        _, rest_port, _, _, _ = instances[result]
         t = time.time()
         while 1:
             try:
@@ -269,7 +274,7 @@ async def kill_instance(req):
             status=409,
             text="Instance does not exist"
         )
-    _, _, container, _ = instances.pop(instance)
+    _, _, container, _, _ = instances.pop(instance)
     if container is not None:
         subprocess.getstatusoutput("docker stop {}".format(container))
     return web.Response(status=200)
@@ -292,21 +297,29 @@ async def instance_page(req):
     <h1>RPBS Seamless server</h1>
     <h1>List of instances</h1>
     <table>
-    <tr><th>Instance</th><th>Service</th><th></th></tr>
+    <tr><th>Instance</th><th>Service</th><th></th><th></th><th></th></tr>
     {}
     </table>
 </body>
 </html>
     """
-    form = """<form action="./kill" method="post">
+    kill_form = """<form action="./kill" method="post">
   <input type="hidden" name="instance" value="{}">
   <input type="submit" value="Kill instance">
 </form>"""    
     service_txt = ""
     for instance in instances:
-        _, _, _, service_name = instances[instance]
-        cform = form.format(instance)
-        s = "<tr><th>{}</th><th>{}</th><th>{}</th></tr>".format(instance, service_name, cform)
+        _, _, _, service_name, with_status = instances[instance]
+        go_link="../instance/{}/".format(instance)
+        cgo_link = "<a href='{}'>Go to instance</a>".format(go_link)
+        cstatus_link = ""
+        if with_status:
+            status_link="../instance/{}/status/".format(instance)
+            cstatus_link = "<a href='{}'>Go to status</a>".format(status_link)
+        ckill_form = kill_form.format(instance)
+        s = "<tr><th>{}</th><th>{}</th><th>{}</th><th>{}</th><th>{}</th></tr>".format(
+            instance, service_name, cgo_link, cstatus_link, ckill_form
+        )
         service_txt += "    " + s + "\n"
     return web.Response(
         status=200,
@@ -338,10 +351,19 @@ async def main_page(req):
   <input type="hidden" name="service" value="{}">
   <input type="submit" value="Launch instance">
 </form>"""    
+    form2 = """<form action="./launch" method="post">
+  <input type="hidden" name="service" value="{}">
+  <input type="hidden" name="with_status" value="1">
+  <input type="submit" value="Launch with status monitor">
+</form>"""    
+
     service_txt = ""
     for service_name in services:
         cform = form.format(service_name)
-        s = "<tr><th>{}</th><th>{}</th></tr>".format(service_name, cform)
+        cform2 = form2.format(service_name)
+        s = "<tr><th>{}</th><th>{}</th><th>{}</th></tr>".format(
+            service_name, cform, cform2
+        )
         service_txt += "    " + s + "\n"
     return web.Response(
         status=200,

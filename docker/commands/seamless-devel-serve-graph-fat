@@ -20,6 +20,8 @@ print(bridge[0]["IPAM"]["Config"][0]["Gateway"])
 ''')
 
 name=$1
+f=$2
+shift 2
 c=$(docker run --rm \
   --detach \
   --name $name \
@@ -35,7 +37,8 @@ c=$(docker run --rm \
   --group-add $(getent group docker | cut -d: -f3) \
   --workdir /cwd \
   -u jovyan \
-  seamless-devel python3 -u /home/jovyan/seamless-scripts/serve-graph.py $2 --redis \
+  seamless-devel python3 -u /home/jovyan/seamless-scripts/serve-graph.py $f --redis \
+  $@ \
 )
 
 docker port $name
