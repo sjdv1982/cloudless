@@ -1,6 +1,7 @@
 #!/bin/bash
 echo 'Starting up job slaves...'
-nslaves=4
+nslaves=$1
+: ${nslaves:=4}
 communion_incoming=$(python3 scripts/jobslaves.py $nslaves)
 echo "Job slaves are listening at " $communion_incoming
 export SEAMLESS_COMMUNION_INCOMING=$communion_incoming
