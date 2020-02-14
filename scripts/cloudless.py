@@ -170,8 +170,8 @@ def launch(service_name, with_status=False):
         os.chdir(service_dir)        
         cmd = "{} {} {}".format(launch_command, container, service_file)
         if with_status:
-            d = "/home/jovyan/seamless-tests/highlevel/visualize-graph/status-visualization-graph"        
-            cmd += " --status-graph {0}.seamless --add-zip {0}.zip".format(d)
+            d = "/home/jovyan/software/seamless/graphs/status-visualization"
+            cmd += " --status-graph {0}.seamless".format(d)
         err, output = subprocess.getstatusoutput(cmd)        
         if err:
             raise LaunchError("Launch output:\n{}\n{}".format(err, output))
