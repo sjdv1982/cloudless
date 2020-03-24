@@ -143,6 +143,8 @@ async def connect_instance(req):
             text="Need to specify integer rest_port"
         )
 
+    with_status = query.get("with_status", False)
+    service_name = query.get("service_name", None)
     if instance in instances:
         if instances[instance][:2] != (update_port, rest_port):
             return web.Response(
@@ -151,7 +153,7 @@ async def connect_instance(req):
             )
         return web.Response(status=200)
 
-    instances[instance] = update_port, rest_port, None, None, False
+    instances[instance] = update_port, rest_port, None, service_name, with_status
     return web.Response(status=200)
 
 class LaunchError(Exception):
@@ -305,18 +307,19 @@ async def instance_page(req):
     """
     kill_form = """<form action="./kill" method="post">
   <input type="hidden" name="instance" value="{}">
-  <input type="submit" value="Kill instance">
+  <input type="submit" value="{}">
 </form>"""    
     service_txt = ""
     for instance in instances:
-        _, _, _, service_name, with_status = instances[instance]
+        _, _, container, service_name, with_status = instances[instance]
         go_link="../instance/{}/".format(instance)
         cgo_link = "<a href='{}'>Go to instance</a>".format(go_link)
         cstatus_link = ""
         if with_status:
             status_link="../instance/{}/status/".format(instance)
             cstatus_link = "<a href='{}'>Go to status</a>".format(status_link)
-        ckill_form = kill_form.format(instance)
+        msg = "Kill instance" if container else "Disconnect from instance"
+        ckill_form = kill_form.format(instance, msg)
         s = "<tr><th>{}</th><th>{}</th><th>{}</th><th>{}</th><th>{}</th></tr>".format(
             instance, service_name, cgo_link, cstatus_link, ckill_form
         )

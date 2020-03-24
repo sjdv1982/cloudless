@@ -1,0 +1,64 @@
+#!/usr/bin/env python3
+"""
+Registers a running Seamless instance with Cloudless under $INSTANCE
+Cloudless will redirect:
+- http://cloudless-url/$INSTANCE  to http://localhost:${REST_PORT}
+- ws://cloudless-url/$INSTANCE  to ws://localhost:${UPDATE_PORT}
+In addition, the instance is rendered in the Admin panel.
+"""
+
+import requests
+import argparse
+import json
+
+parser = argparse.ArgumentParser()
+parser.add_argument(
+    "url",
+    help="Cloudless URL"
+)
+parser.add_argument(
+    "instance",
+    help="unique Cloudless instance ID"
+)
+
+parser.add_argument(
+    "--update_port",
+    help="Port for websocket updates",
+    default=5138,
+)
+
+parser.add_argument(
+    "--rest_port",
+    help="Port for REST access",
+    default=5813,
+)
+
+parser.add_argument(
+    "--service_name",
+    help="""Name for the service (optional).
+This is for correct display in the Cloudless admin panel.""",
+)
+
+parser.add_argument(
+    "--with_status",
+    help="""Indicate that the service has been linked to a status-reporting graph.
+This is for correct display in the Cloudless admin panel."""
+,
+    action="store_true"
+)
+args = parser.parse_args()
+
+params = {
+    "instance": args.instance,
+    "update_port": args.update_port,
+    "rest_port": args.rest_port,    
+}
+if args.service_name is not None:
+    params["service_name"] = args.service_name
+
+if args.with_status:
+    params["with_status"] = True
+
+connect_instance = args.url + "/connect_instance"
+response = requests.put(connect_instance,params=params)
+print("Status:", response.status_code, response.text)
