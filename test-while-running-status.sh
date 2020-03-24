@@ -15,5 +15,5 @@ cd graphs
 port=$(docker port $name | grep 8602 | sed 's/:/ /' | awk '{print $4}')
 export SEAMLESS_COMMUNION_INCOMING=$bridge_ip:$port
 ../docker/test-commands/thin $name2 share-pdb.seamless \
-  --status-graph /home/jovyan/seamless-tests/highlevel/visualize-graph/status-visualization-graph.seamless \
-  --add-zip /home/jovyan/seamless-tests/highlevel/visualize-graph/status-visualization-graph.zip
+  --status-graph /home/jovyan/software/seamless/graphs/status-visualization.seamless \
+  --add-zip /home/jovyan/software/seamless/graphs/status-visualization.zip
