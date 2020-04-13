@@ -59,6 +59,7 @@ if args.service_name is not None:
 if args.with_status:
     params["with_status"] = True
 
+assert args.url.startswith("http://")  or args.url.startswith("https://")
 connect_instance = args.url + "/connect_instance"
 response = requests.put(connect_instance,params=params)
 print("Status:", response.status_code, response.text)

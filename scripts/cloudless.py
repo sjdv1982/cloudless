@@ -28,8 +28,18 @@ for f in glob.glob("../graphs/*.seamless"):
     service_name = os.path.splitext(service_file)[0]
     services[service_name] = service_dir, service_file
 
+class Instance:
+    container = None
+    service_name = None
+    with_status = False
+    proxy_websocket = None
+    
+    def __init__(self, update_port, rest_port):
+        self.update_port = update_port
+        self.rest_port = rest_port
+
 instances = {
-    #1: (32876, 32875, None, None, False)
+    #1: Instance(32876, 32875)
 }
 
 
@@ -101,7 +111,9 @@ async def reverse_proxy(req):
     if instance not in instances:
         return web.Response(status=404,text="Unknown instance")
 
-    update_port, rest_port, _, _, _ = instances[instance]
+    inst = instances[instance]
+    update_port = inst.update_port
+    rest_port = inst.rest_port
     async with aiohttp.ClientSession(cookies=req.cookies) as client:
         if reqH.get('connection','').lower() == 'upgrade' \
         and reqH.get('upgrade', '').lower() == 'websocket' \
@@ -146,14 +158,18 @@ async def connect_instance(req):
     with_status = query.get("with_status", False)
     service_name = query.get("service_name", None)
     if instance in instances:
-        if instances[instance][:2] != (update_port, rest_port):
+        inst = instances[instance]
+        if (inst.update_port, inst.rest_port) != (update_port, rest_port):
             return web.Response(
                 status=409,
                 text="Instance already exists"
             )
         return web.Response(status=200)
 
-    instances[instance] = update_port, rest_port, None, service_name, with_status
+    inst = Instance(update_port, rest_port)
+    inst.service_name = service_name
+    inst.with_status = with_status
+    instances[instance] = inst
     return web.Response(status=200)
 
 class LaunchError(Exception):
@@ -198,7 +214,11 @@ def launch(service_name, with_status=False):
             raise LaunchError("Seamless shareserver websocket update port was not bound")
         if rest_port is None:
             raise LaunchError("Seamless shareserver REST port was not bound")
-        instances[instance] = update_port, rest_port, container, service_name, with_status
+        inst = Instance(update_port, rest_port)
+        inst.container = container
+        inst.service_name = service_name
+        inst.with_status = with_status
+        instances[instance] = inst
     finally:
         os.chdir(cwd)
     return instance
@@ -239,7 +259,7 @@ async def launch_instance(req):
 async def browser_launch_instance(req):
     result = await launch_instance(req)
     if isinstance(result, int):   # instance
-        _, rest_port, _, _, _ = instances[result]
+        rest_port = instances[result].rest_port
         t = time.time()
         while 1:
             try:
@@ -276,7 +296,8 @@ async def kill_instance(req):
             status=409,
             text="Instance does not exist"
         )
-    _, _, container, _, _ = instances.pop(instance)
+    inst = instances.pop(instance)
+    container = inst.container
     if container is not None:
         subprocess.getstatusoutput("docker stop {}".format(container))
     return web.Response(status=200)
@@ -311,7 +332,9 @@ async def instance_page(req):
 </form>"""    
     service_txt = ""
     for instance in instances:
-        _, _, container, service_name, with_status = instances[instance]
+        inst =  instances[instance]
+        container, service_name, with_status = \
+          inst.container, inst.service_name, inst.with_status
         go_link="../instance/{}/".format(instance)
         cgo_link = "<a href='{}'>Go to instance</a>".format(go_link)
         cstatus_link = ""
