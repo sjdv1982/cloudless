@@ -141,13 +141,18 @@ class Proxy:
 
 async def create_proxy(name, req):
     ws_proxied = web.WebSocketResponse()
-    await ws_proxied.prepare(req)
+    await ws_proxied.prepare(req)    
     if name in _proxies:
+        """
+        # Disable this, because proxies can be closed... can we check this?
         return web.Response(
             status=400,
             text="Proxy '{}' already exists".format(name)
         )
-    print("CREATED PROXY", name)
+        """
+        print("RECREATED PROXY", name)
+    else:
+        print("CREATED PROXY", name)
     proxy = Proxy(name, ws_proxied)
     _proxies[name] = proxy
     ###proxy.serve()
@@ -220,33 +225,37 @@ async def _serve_myself_message(
     else:
         raise ValueError("Malformatted proxy request")
     
-async def serve_myself_through_proxy(ws_proxying, rest_server, update_server, instances):
+async def serve_myself_through_proxy(client, url, rest_server, update_server, instances):
     print("""Cloudless is now served through a proxy 
 This will last until you press Ctrl-C on the process that launched the connect_to_cloudless request
 In addition, Cloudless is still available via its original port""")
-
-    ws_connections = {}
-    async for msg in ws_proxying:
-        #print('>>> msg2: %s',pprint.pformat(msg))
-        mt = msg.type
-        md = msg.data
-        if mt == aiohttp.WSMsgType.TEXT:
-            raise ValueError("Proxying Cloudless should send bytes")                
-        elif mt == aiohttp.WSMsgType.BINARY:
-            result = await _serve_myself_message(
-                ws_proxying,
-                md, rest_server, update_server, instances, ws_connections
-            )
-            #print("MSG RESULT", result)
-            if result is not None:
-                id = result.pop("id")
-                msg = msg_pack("http", id, result)
-                await ws_proxying.send_bytes(msg)
-        else:
-            raise ValueError('unexpected message type: %s',pprint.pformat(msg))
+    
+    while 1:
+        async with client.ws_connect(url) as ws_proxying:
+            ws_connections = {}
+            async for msg in ws_proxying:
+                #print('>>> msg2: %s',pprint.pformat(msg))            
+                mt = msg.type
+                md = msg.data
+                if mt == aiohttp.WSMsgType.TEXT:
+                    raise ValueError("Proxying Cloudless should send bytes")                
+                elif mt == aiohttp.WSMsgType.BINARY:
+                    result = await _serve_myself_message(
+                        ws_proxying,
+                        md, rest_server, update_server, instances, ws_connections
+                    )
+                    #print("MSG RESULT", result)
+                    if result is not None:
+                        id = result.pop("id")
+                        msg = msg_pack("http", id, result)
+                        await ws_proxying.send_bytes(msg)
+                else:
+                    raise ValueError('unexpected message type: %s',pprint.pformat(msg))
+            print("Reopen proxy...")
 
 async def ws_listen(ws_connection, prox):
     async for msg in ws_connection:
+        print("Seamless 0.01 ignores all messages sent to its websocket server... (2)", msg)
         pass
 
 async def forward_proxy(req):

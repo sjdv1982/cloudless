@@ -114,10 +114,9 @@ async def connect_to_cloudless(req):
 
     try:        
         async with aiohttp.ClientSession(cookies=req.cookies) as client:
-            async with client.ws_connect(url) as ws_client:                
-                await proxy_module.serve_myself_through_proxy(
-                    ws_client, rest_server, update_server, instances
-                )
+            await proxy_module.serve_myself_through_proxy(
+                client, url, rest_server, update_server, instances
+            )            
     except asyncio.CancelledError:
         pass
     except Exception:
