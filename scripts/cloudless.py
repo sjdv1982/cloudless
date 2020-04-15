@@ -8,16 +8,17 @@ import random
 import subprocess
 import time
 
-"""
-Reverse proxy code from:
-https://github.com/oetiker/aio-reverse-proxy/blob/master/paraview-proxy.py'
-(Copyright (c) 2018 Tobias Oetiker, MIT License)
-"""
+import proxy as proxy_module
+import reverse_proxy as reverse_proxy_module
+from functools import partial
 
 currdir = os.path.split(os.path.abspath(__file__))[0]
 os.chdir(currdir)
 
 cloudless_port = 3124
+import sys
+if len(sys.argv) > 1:
+    cloudless_port = int(sys.argv[1])
 
 rest_server = "http://localhost"
 update_server = "http://localhost" # still http!
@@ -41,86 +42,8 @@ class Instance:
 instances = {
     #1: Instance(32876, 32875)
 }
+proxies = {}
 
-
-async def reverse_proxy_websocket(req, client, port, tail):
-    ws_server = web.WebSocketResponse()
-    await ws_server.prepare(req)
-    #logger.info('##### WS_SERVER %s' % pprint.pformat(ws_server))
-    
-    async with client.ws_connect(
-        "{}:{}/{}".format(update_server, port, tail),
-    ) as ws_client:
-        #logger.info('##### WS_CLIENT %s' % pprint.pformat(ws_client))
-
-        async def ws_forward(ws_from,ws_to):
-            async for msg in ws_from:
-                #logger.info('>>> msg: %s',pprint.pformat(msg))
-                mt = msg.type
-                md = msg.data
-                if mt == aiohttp.WSMsgType.TEXT:
-                    await ws_to.send_str(md)
-                elif mt == aiohttp.WSMsgType.BINARY:
-                    await ws_to.send_bytes(md)
-                elif mt == aiohttp.WSMsgType.PING:
-                    await ws_to.ping()
-                elif mt == aiohttp.WSMsgType.PONG:
-                    await ws_to.pong()
-                elif ws_to.closed:
-                    await ws_to.close(code=ws_to.close_code,message=msg.extra)
-                else:
-                    raise ValueError('unexpected message type: %s',pprint.pformat(msg))
-
-        # keep forwarding websocket data in both directions
-        await asyncio.wait([ws_forward(ws_server,ws_client),ws_forward(ws_client,ws_server)],return_when=asyncio.FIRST_COMPLETED)
-
-        return ws_server
-
-async def reverse_proxy_http(req, client, port, tail):    
-    reqH = req.headers.copy()
-    async with client.request(
-        req.method,"{}:{}/{}".format(rest_server, port, tail),
-        params=req.query,
-        headers = reqH,
-        allow_redirects=False,
-        data = await req.read()
-    ) as res:
-        headers = res.headers.copy()
-        del headers['content-length']
-        if "location" in headers:
-            instance = req.match_info.get('instance')
-            headers["location"] = "/instance/{}{}".format(
-                instance,
-                headers["location"]
-            )
-        body = await res.read()
-        return web.Response(
-            headers = headers,
-            status = res.status,
-            body = body
-        )        
-
-async def reverse_proxy(req):
-    reqH = req.headers.copy()
-    instance = req.match_info.get('instance')
-    try:
-        instance = int(instance)
-    except ValueError:
-        pass
-    tail = req.match_info.get('tail')
-    if instance not in instances:
-        return web.Response(status=404,text="Unknown instance")
-
-    inst = instances[instance]
-    update_port = inst.update_port
-    rest_port = inst.rest_port
-    async with aiohttp.ClientSession(cookies=req.cookies) as client:
-        if reqH.get('connection','').lower() == 'upgrade' \
-        and reqH.get('upgrade', '').lower() == 'websocket' \
-        and req.method == 'GET':
-            return await reverse_proxy_websocket(req, client, update_port, tail)
-        else:
-            return await reverse_proxy_http(req, client, rest_port, tail)
 
 async def connect_instance(req):
     req = req.rel_url
@@ -171,6 +94,60 @@ async def connect_instance(req):
     inst.with_status = with_status
     instances[instance] = inst
     return web.Response(status=200)
+
+async def connect_to_cloudless(req):
+    query = req.query
+    proxy = query.get("proxy", None)
+    if proxy is None:
+        return web.Response(
+            status=400,
+            text="Need to specify proxy URL"
+        )
+    url = proxy + "/connect_from_cloudless"
+    name = query.get("name", None)
+    if name is None:
+        return web.Response(
+            status=400,
+            text="Need to specify proxy name"
+        )
+    url += "?name={}".format(name)
+
+    try:        
+        async with aiohttp.ClientSession(cookies=req.cookies) as client:
+            async with client.ws_connect(url) as ws_client:                
+                await proxy_module.serve_myself_through_proxy(
+                    ws_client, rest_server, update_server, instances
+                )
+    except asyncio.CancelledError:
+        pass
+    except Exception:
+        import traceback, sys
+        traceback.print_exc(file=sys.stderr)
+        return web.Response(
+            status=400,
+            text="Proxy refused"
+        )
+    return web.Response(status=200)
+
+async def connect_from_cloudless(req):
+    query = req.query
+    name = query.get("name", None)
+    if name is None:
+        return web.Response(
+            status=400,
+            text="Must provide proxy name"
+        )
+    reqH = req.headers.copy()
+    if reqH.get('connection','').lower() == 'upgrade' \
+      and reqH.get('upgrade', '').lower() == 'websocket' \
+      and req.method == 'GET':
+        await proxy_module.create_proxy(name, req)
+        return web.Response(status=200)
+    else:
+        return web.Response(
+            status=400,
+            text="connect_from_cloudless requires websocket protocol"
+        )
 
 class LaunchError(Exception):
     pass
@@ -400,15 +377,25 @@ async def main_page(req):
 async def redirect(req):
     raise web.HTTPFound('/index.html')
 
-app = web.Application()
-app.router.add_route('GET','/', redirect)
-app.router.add_route('GET','/index.html', main_page)
-app.router.add_route('*','/instance/{instance}/{tail:.*}', reverse_proxy)
-app.router.add_route('PUT','/connect_instance', connect_instance)
-app.router.add_route('POST','/launch_instance', launch_instance)
-app.router.add_route('POST','/launch', browser_launch_instance)
-app.router.add_route('GET','/admin', admin_redirect)
-app.router.add_route('GET','/admin/instance_page', instance_page)
-app.router.add_route('POST','/admin/kill_instance', kill_instance)
-app.router.add_route('POST','/admin/kill', browser_kill_instance)
-web.run_app(app,port=cloudless_port)
+if __name__ == "__main__":
+    app = web.Application()
+    app.router.add_route('GET','/', redirect)
+    app.router.add_route('GET','/index.html', main_page)
+    app.router.add_route('*','/proxy/{proxy_name}/{instance}/{tail:.*}', proxy_module.forward_proxy)
+    rp = partial(
+        reverse_proxy_module.reverse_proxy, 
+        instances=instances, 
+        rest_server=rest_server,
+        update_server=update_server
+    )
+    app.router.add_route('*','/instance/{instance}/{tail:.*}', rp)
+    app.router.add_route('PUT','/connect_instance', connect_instance)
+    app.router.add_route('POST','/launch_instance', launch_instance)
+    app.router.add_route('POST','/launch', browser_launch_instance)
+    app.router.add_route('GET','/admin', admin_redirect)
+    app.router.add_route('GET','/admin/instance_page', instance_page)
+    app.router.add_route('POST','/admin/kill_instance', kill_instance)
+    app.router.add_route('POST','/admin/kill', browser_kill_instance)
+    app.router.add_route('PUT','/connect_to_cloudless', connect_to_cloudless)
+    app.router.add_route('GET','/connect_from_cloudless', connect_from_cloudless)
+    web.run_app(app,port=cloudless_port)
