@@ -29,7 +29,7 @@ def get_ephemeral_port(name):
 
 def start_jobslave(name):
     err, output = subprocess.getstatusoutput(
-        "{}/seamless-devel-jobslave {}".format(docker_cmd_dir,name)
+        "{}/seamless-jobslave {}".format(docker_cmd_dir,name)
     )
     if err != 0:
         print(output, file=sys.stderr)
@@ -51,4 +51,6 @@ def main(nslaves):
 if __name__ == "__main__":
     import sys
     nslaves=int(sys.argv[1])
+    if len(sys.argv) > 2:
+        name_template = sys.argv[2]
     main(nslaves)

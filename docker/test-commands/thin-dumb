@@ -6,7 +6,7 @@ seamlessdir=`python3 -c 'import seamless,os;print(os.path.dirname(seamless.__fil
 
 bridge_ip=$(docker network inspect bridge \
   | python3 -c '''
-import json, sys 
+import json, sys
 bridge = json.load(sys.stdin)
 print(bridge[0]["IPAM"]["Config"][0]["Gateway"])
 ''')
@@ -30,8 +30,8 @@ docker run --rm \
   -v `pwd`:/cwd \
   --workdir /cwd \
   -u jovyan \
-  seamless-devel ipython3 -i /home/jovyan/seamless-scripts/serve-graph.py -- \
+  seamless ipython3 -i /home/jovyan/seamless-scripts/serve-graph.py -- \
     --interactive \
     $f --redis --ncores 0 \
     --communion_id $name \
-    $@ 
+    $@

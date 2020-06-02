@@ -1,0 +1,15 @@
+set -u -e
+
+# - Current directory is mounted to /cwd, and the command is executed there
+
+zipfile_dir=`python3 -c 'import os,sys;print(os.path.abspath(os.path.dirname(sys.argv[1])))' $1`
+zipfile_name=${1##*/}
+
+cd ${zipfile_dir}
+
+docker run --rm \
+  --network=host \
+  -v `pwd`:/cwd \
+  --workdir /cwd \
+  -u jovyan \
+  rpbs/seamless python3 /home/jovyan/seamless-scripts/add-zip.py ${zipfile_name}

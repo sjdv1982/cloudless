@@ -6,7 +6,7 @@ set -u -e
 #    NOTE: THIS IS A BIG SECURITY HOLE, IT CAN GIVE ROOT ACCESS TO YOUR SYSTEM
 #  - For now, direct Redis access is assumed, via the Redis port 6379
 #    NOTE: THIS IS A BIG SECURITY HOLE, IT ALLOWS CORRUPTION AND SNOOPING OF THE DATABASE
-#  - The share server listens on 0.0.0.0, because I can't find out 
+#  - The share server listens on 0.0.0.0, because I can't find out
 #      how Docker Bridge rewrites the IP address origin
 #    NOTE: THIS IS A BIG SECURITY HOLE IF YOUR EPHEMERAL PORTS ARE VISIBLE TO THE OUTSIDE
 
@@ -14,7 +14,7 @@ seamlessdir=`python3 -c 'import seamless,os;print(os.path.dirname(seamless.__fil
 
 bridge_ip=$(docker network inspect bridge \
   | python3 -c '''
-import json, sys 
+import json, sys
 bridge = json.load(sys.stdin)
 print(bridge[0]["IPAM"]["Config"][0]["Gateway"])
 ''')
@@ -37,7 +37,7 @@ c=$(docker run --rm \
   --group-add $(getent group docker | cut -d: -f3) \
   --workdir /cwd \
   -u jovyan \
-  seamless-devel python3 -u /home/jovyan/seamless-scripts/serve-graph.py $f --redis \
+  rpbs/seamless python3 -u /home/jovyan/seamless-scripts/serve-graph.py $f --redis \
   $@ \
 )
 
