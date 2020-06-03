@@ -12,6 +12,7 @@ set -u -e
 
 name=$1
 redis_host=$2
+shift 2
 docker run --rm \
   --detach \
   --name $name \
@@ -26,4 +27,4 @@ docker run --rm \
   --workdir /cwd \
   --user $(id -u):$(id -g) \
   rpbs/seamless python3 -u /home/jovyan/seamless-scripts/jobslave.py \
-    --communion_id $*
+    --communion_id $name $*
