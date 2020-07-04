@@ -1,5 +1,5 @@
-python3 -u scripts/cloudless.py  |& tee test-proxy-1.log &
-python3 -u scripts/cloudless.py 4000 |& tee test-proxy-2.log &
+python3 -u scripts/cloudless.py cloudless-serve-graph-fat |& tee test-proxy-1.log &
+python3 -u scripts/cloudless.py 4000 cloudless-serve-graph-fat |& tee test-proxy-2.log &
 sleep 1
 echo connect-instance
 python3 -u ./connect-instance http://localhost:4000 9999 |& tee test-proxy-3.log

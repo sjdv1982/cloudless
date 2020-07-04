@@ -1,6 +1,5 @@
 set -u -e
 
-# - Current directory is mounted to /cwd, and the command is executed there
 # - Seamless has access to the Docker daemon, so it can launch its own Docker
 #    containers via the Docker transformer. This works only under Linux.
 #    NOTE: THIS IS A BIG SECURITY HOLE, IT CAN GIVE ROOT ACCESS TO YOUR SYSTEM
@@ -32,12 +31,10 @@ c=$(docker run --rm \
   --expose 5813 \
   --expose 5138 \
   -P \
-  -v `pwd`:/cwd \
   -v /var/run/docker.sock:/var/run/docker.sock \
   --group-add $(getent group docker | cut -d: -f3) \
-  --workdir /cwd \
   -u jovyan \
-  rpbs/seamless python3 -u /home/jovyan/seamless-scripts/serve-graph.py $f --redis \
+  seamless-devel python3 -u /home/jovyan/seamless-scripts/serve-graph.py $f --redis \
   $@ \
 )
 

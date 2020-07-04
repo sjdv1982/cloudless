@@ -17,11 +17,12 @@ os.chdir(currdir)
 
 cloudless_port = 3124
 import sys
-if len(sys.argv) > 1:
-    cloudless_port = int(sys.argv[1])
+serve_graph_command = sys.argv[1]  # e.g. "cloudless-devel-serve-graph-thin"
+if len(sys.argv) > 2:
+    cloudless_port = int(sys.argv[2])
 
 rest_server = "http://localhost"
-update_server = "http://localhost" # still http!
+update_server = "http://localhost" # still http, not ws!
 
 services = {}
 for f in glob.glob("../graphs/*.seamless"):
@@ -159,7 +160,7 @@ def launch(service_name, with_status=False):
             break
     service_dir, service_file = services[service_name]
     cwd = os.getcwd()
-    launch_command = os.path.abspath("../docker/commands/cloudless-devel-serve-graph")
+    launch_command = os.path.abspath("../docker/commands/{}".format(serve_graph_command))
     try:
         os.chdir(service_dir)
         cmd = "{} {} {}".format(launch_command, container, service_file)

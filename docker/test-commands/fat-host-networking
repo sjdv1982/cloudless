@@ -1,0 +1,17 @@
+set -u -e
+
+name=$1
+f=$2
+shift 2
+docker run --rm \
+  -it \
+  --network host \
+  --name $name \
+  -e "SHARESERVER_ADDRESS=0.0.0.0" \
+  -v `pwd`:/cwd \
+  --workdir /cwd \
+  -u jovyan \
+ rpbs/seamless ipython3 -i /home/jovyan/seamless-scripts/serve-graph.py -- \
+    --interactive \
+    $f --redis \
+    $@
