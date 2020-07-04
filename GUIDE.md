@@ -64,6 +64,9 @@ On the master:
             python3 test-jobslave.py
             ```
 
+    The first lines should contain `INCOMING` and `ADD SERVANT`
+
+    The last line should be `None`, not `Local computation has been disabled for this Seamless instance`
 
 
 On each remote node:
