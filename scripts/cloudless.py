@@ -34,7 +34,7 @@ class Instance:
     service_name = None
     with_status = False
     proxy_websocket = None
-    
+
     def __init__(self, update_port, rest_port):
         self.update_port = update_port
         self.rest_port = rest_port
@@ -112,11 +112,11 @@ async def connect_to_cloudless(req):
         )
     url += "?name={}".format(name)
 
-    try:        
+    try:
         async with aiohttp.ClientSession(cookies=req.cookies) as client:
             await proxy_module.serve_myself_through_proxy(
                 client, url, rest_server, update_server, instances
-            )            
+            )
     except asyncio.CancelledError:
         pass
     except Exception:
@@ -159,14 +159,14 @@ def launch(service_name, with_status=False):
             break
     service_dir, service_file = services[service_name]
     cwd = os.getcwd()
-    launch_command = os.path.abspath("../docker/commands/seamless-devel-serve-graph")
+    launch_command = os.path.abspath("../docker/commands/cloudless-devel-serve-graph")
     try:
-        os.chdir(service_dir)        
+        os.chdir(service_dir)
         cmd = "{} {} {}".format(launch_command, container, service_file)
         if with_status:
             d = "/home/jovyan/software/seamless/graphs/status-visualization"
             cmd += " --status-graph {0}.seamless".format(d)
-        err, output = subprocess.getstatusoutput(cmd)        
+        err, output = subprocess.getstatusoutput(cmd)
         if err:
             raise LaunchError("Launch output:\n{}\n{}".format(err, output))
         update_port, rest_port = None, None
@@ -200,7 +200,7 @@ def launch(service_name, with_status=False):
     return instance
 
 
-async def launch_instance(req):    
+async def launch_instance(req):
     data = await req.post()
     service = data.get("service", None)
     with_status = data.get("with_status", None)
@@ -229,7 +229,7 @@ async def launch_instance(req):
             status=500,
             text=exc
         )
-    else:        
+    else:
         return instance
 
 async def browser_launch_instance(req):
@@ -305,7 +305,7 @@ async def instance_page(req):
     kill_form = """<form action="./kill" method="post">
   <input type="hidden" name="instance" value="{}">
   <input type="submit" value="{}">
-</form>"""    
+</form>"""
     service_txt = ""
     for instance in instances:
         inst =  instances[instance]
@@ -341,7 +341,7 @@ async def main_page(req):
 </head>
 <body>
     <h1>RPBS Seamless server</h1>
-    <h1>List of services</h1>    
+    <h1>List of services</h1>
     <table>
     <tr><th>Service</th><th></th></tr>
     {}
@@ -352,12 +352,12 @@ async def main_page(req):
     form = """<form action="./launch" method="post">
   <input type="hidden" name="service" value="{}">
   <input type="submit" value="Launch instance">
-</form>"""    
+</form>"""
     form2 = """<form action="./launch" method="post">
   <input type="hidden" name="service" value="{}">
   <input type="hidden" name="with_status" value="1">
   <input type="submit" value="Launch with status monitor">
-</form>"""    
+</form>"""
 
     service_txt = ""
     for service_name in services:
@@ -382,8 +382,8 @@ if __name__ == "__main__":
     app.router.add_route('GET','/index.html', main_page)
     app.router.add_route('*','/proxy/{proxy_name}/{instance}/{tail:.*}', proxy_module.forward_proxy)
     rp = partial(
-        reverse_proxy_module.reverse_proxy, 
-        instances=instances, 
+        reverse_proxy_module.reverse_proxy,
+        instances=instances,
         rest_server=rest_server,
         update_server=update_server
     )

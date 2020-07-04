@@ -29,7 +29,7 @@ def get_ephemeral_port(name):
 
 def start_jobslave(name):
     err, output = subprocess.getstatusoutput(
-        "{}/seamless-jobslave {}".format(docker_cmd_dir,name)
+        "{}/cloudless-jobslave {}".format(docker_cmd_dir,name)
     )
     if err != 0:
         print(output, file=sys.stderr)

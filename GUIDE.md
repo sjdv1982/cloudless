@@ -6,7 +6,7 @@ On the master:
 
 - Install Seamless (Docker and conda)
 
-- Install Cloudless requirements.txt with pip
+- Install Cloudless requirements.txt with pip. Define $CLOUDLESSDIR in your .bashrc
 
 - Start Redis: `seamless-redis` . It is assumed that your Redis instance does not contain anything else that needs to be saved.
 
@@ -36,7 +36,7 @@ On the master:
 - Test master-to-master Seamless-to-Seamless communion, with Docker bridge networking.
     - In one terminal, do:
         - `cd $CLOUDLESSDIR`
-        - `docker/commands/seamless-jobslave jobslave-container && docker attach jobslave-container`
+        - `docker/commands/cloudless-jobslave jobslave-container && docker attach jobslave-container`
     - In a second terminal, do:
 
         - Re-initialize Redis DB: `docker exec redis-container redis-cli flushall`
@@ -123,7 +123,7 @@ On each remote node:
 - Test master-to-node Seamless-to-Seamless communion, with Docker bridge networking.
     - On the node, do:
         - `cd $CLOUDLESSDIR`
-        - `docker/commands/seamless-jobslave-remote jobslave-container $masterIP && docker attach jobslave-container`
+        - `docker/commands/cloudless-jobslave-remote jobslave-container $masterIP && docker attach jobslave-container`
     - On the node, in a second terminal, find out the ephemeral Docker port: `export port=$(docker port jobslave-container| grep 8602 | sed 's/:/ /' | awk '{print $4}'); echo '$port='$port`
 
     - On the master, do:
