@@ -1,8 +1,8 @@
 # Installation guide
-This guide
-***Note: Unless indicated otherwise, it is assumed that you do each phase A-D in order***
 
 # A. First installation steps
+
+## Installation on the master
 
 - Install Seamless (`docker pull rpbs/seamless && conda -c rpbs install seamless-cli`)
 
@@ -12,12 +12,19 @@ This guide
 
 - Start Redis: `seamless-redis`. It is assumed to be always running.
 
+## Installation on the remote node
+
+- Clone the Cloudless repo. Define $CLOUDLESSDIR in your .bashrc.
+
+- Install Seamless (`docker pull rpbs/seamless && conda -c rpbs install seamless-cli`)
+
+- Define the variable `$masterIP` in `.bashrc.`
+
 
 # B. Network communication testing
 
-- Make sure that the master and each node can reach each other, preferably with ssh-without-password.
+Make a backup of your Redis DB if needed. Below, it is assumed that it does not contain anything else that needs to be saved, and can be flushed (deleted) at will.
 
-It is assumed that your Redis instance does not contain anything else that needs to be saved.
 
 ## Master-to-master communication tests
 
@@ -25,97 +32,127 @@ This involves two terminals on the master
 
 ### Test master-to-master Seamless-to-Seamless communion.
 
-   - In one terminal, do:
+- In one terminal, do:
 
-        `seamless python3 /home/jovyan/seamless-scripts/jobslave.py --communion_id JOBSLAVE --communion_outgoing 6543`
+    `seamless python3 /home/jovyan/seamless-scripts/jobslave.py --communion_id JOBSLAVE --communion_outgoing 6543`
 
-   - In another terminal:
+- In another terminal:
 
-        - Flush Redis DB: `docker exec redis-container redis-cli flushall`
+    Flush Redis DB: `docker exec redis-container redis-cli flushall`
 
-        - `cd $CLOUDLESSDIR`
+    Then, do:
+    ```bash
+    cd $CLOUDLESSDIR
+    seamless-bash
+    export SEAMLESS_COMMUNION_INCOMING=localhost:6543
+    python3 test-jobslave.py
+    ```
 
-        - `seamless-bash`
+The first lines should contain `INCOMING` and `ADD SERVANT`
 
-        - `export SEAMLESS_COMMUNION_INCOMING=localhost:6543`
-
-        - `python3 test-jobslave.py`
-
-   The first lines should contain `INCOMING` and `ADD SERVANT`
-
-   The last line should be `None`, not `Local computation has been disabled for this Seamless instance`
+The last line should be `None`.
+If is instead `Local computation has been disabled for this Seamless instance`, then the test has failed.
 
 
 ### Test master-to-master Seamless-to-Seamless communion, with Docker bridge networking.
-    - In one terminal, do:
-        - `cd $CLOUDLESSDIR`
-        - `docker/commands/cloudless-jobslave jobslave-container && docker attach jobslave-container`
-    - In a second terminal, do:
 
-        - Flush Redis DB: `docker exec redis-container redis-cli flushall`
+- In one terminal, do:
 
-        - Find out the bridge IP:
-            ```bash
-            export bridge_ip=$(docker network inspect bridge \
-            | python3 -c '''import json, sys; bridge = json.load(sys.stdin); print(bridge[0]["IPAM"]["Config"][0]["Gateway"])''')
-            echo '$bridge_ip='$bridge_ip
-            ```
+    - `cd $CLOUDLESSDIR`
 
-        - Find out the ephemeral Docker port: `export port=$(docker port jobslave-container| grep 8602 | sed 's/:/ /' | awk '{print $4}'); echo '$port='$port`
+    - `docker/commands/cloudless-jobslave jobslave-container && docker attach jobslave-container`
 
-        - `cd $CLOUDLESSDIR`
+- In a second terminal, do:
 
-        -  Run the following:
-            ```bash
-            docker run --rm \
-            -e "REDIS_HOST="$bridge_ip \
-            -e "SEAMLESS_COMMUNION_INCOMING="$bridge_ip:$port \
-            -u jovyan \
-            rpbs/seamless \
-            python3 test-jobslave.py
-            ```
+    - Flush Redis DB: `docker exec redis-container redis-cli flushall`
+
+    - Find out the bridge IP:
+        ```bash
+        export bridge_ip=$(docker network inspect bridge \
+        | python3 -c '''import json, sys; bridge = json.load(sys.stdin); print(bridge[0]["IPAM"]["Config"][0]["Gateway"])''')
+        echo '$bridge_ip='$bridge_ip
+        ```
+
+    - Find out the ephemeral Docker port: `export port=$(docker port jobslave-container| grep 8602 | sed 's/:/ /' | awk '{print $4}'); echo '$port='$port`
+
+    - `cd $CLOUDLESSDIR`
+
+    -  Run the following:
+        ```bash
+        docker run --rm \
+        -e "REDIS_HOST="$bridge_ip \
+        -e "SEAMLESS_COMMUNION_INCOMING="$bridge_ip:$port \
+        -u jovyan \
+        rpbs/seamless \
+        python3 test-jobslave.py
+        ```
 
 
-## Master-to-master communication tests
+## Master-to-node and node-to-master communication tests
 
 This involves one terminal on the master, one on the remote node. Repeat for each remote node.
 
+### Test if the node can reach an open port on the master
 
-### Remote node installation
+- On the master: `docker run --rm --network=host jupyter/scipy-notebook`
 
-- Clone the Cloudless repo. Define $CLOUDLESSDIR in your .bashrc.
+- On the node: `curl -v $masterIP:8888`
 
-- Install Seamless (`docker pull rpbs/seamless && conda -c rpbs install seamless-cli`)
+This should print something like:
+
+```
+< HTTP/1.1 302 Found
+< Server: TornadoServer/6.0.3
+< Content-Type: text/html; charset=UTF-8
+< Date: Tue, 07 Jul 2020 09:13:31 GMT
+< Location: /tree?
+< Content-Length: 0
+<
+* Connection #0 to host XXX.XXX.X.XX left intact
+```
+
+### Test if the master can reach an open port on the node
+
+- On the node: `docker run --rm --network=host jupyter/scipy-notebook`
+
+- On the master: define nodeIP, then `curl -v $nodeIP:8888`
+
+This should print the same as for the previous test.
+
 
 ### Test if Redis on the master is reachable from the node, with Docker host networking:
 
-    - On the master, populate Redis with the Seamless default graph for status monitoring:
+- On the master, populate Redis with the Seamless default graph for status monitoring:
 
-        `seamless python3 /home/jovyan/seamless-scripts/add-zip.py /home/jovyan/software/seamless/graphs/status-visualization.zip`
+    `seamless python3 /home/jovyan/seamless-scripts/add-zip.py /home/jovyan/software/seamless/graphs/status-visualization.zip`
 
-    - On the node, start a container with `seamless-bash`, and test
-        - `ping $masterIP`
-        - `redis-cli -h $masterIP`
-        - type `keys *` and you will see some entries starting with "buf:" and "bfl:".
-        - `exit` (Redis)
-        - `exit` (Docker container)
+- On the node, do:
+    - `seamless-bash -e masterIP`
+    - `ping $masterIP`
+    - `redis-cli -h $masterIP`
+    - type `keys *` and you will see some entries starting with "buf:" and "bfl:".
+    - `exit` (Redis)
+    - `exit` (Docker container)
 
 ### Test master-to-node Seamless-to-Seamless communion, with Docker host networking.
-    - On the node, do:
-        - `seamless-bash`
-        - `export REDIS_HOST=$masterIP`
-        - `export SEAMLESS_COMMUNION_OUTGOING_ADDRESS=$nodeIP`
-        - `python3 ~/seamless-scripts/jobslave.py --communion_id JOBSLAVE --communion_outgoing 6543`
-    - On the master, do:
-        - Flush Redis DB: `docker exec redis-container redis-cli flushall`
-        - `cd $CLOUDLESSDIR`
-        - `seamless-bash`
-        - `export SEAMLESS_COMMUNION_INCOMING=$nodeIP:6543`
-        - `python3 test-jobslave.py`
+- On the node, do:
+    - `seamless-bash -e masterIP`
+    - `export REDIS_HOST=$masterIP`
+    - `export SEAMLESS_COMMUNION_OUTGOING_ADDRESS=0.0.0.0`
+    - `python3 ~/seamless-scripts/jobslave.py --communion_id JOBSLAVE --communion_outgoing 6543`
+- On the master, do:
+    - Flush Redis DB: `docker exec redis-container redis-cli flushall`
+    - Define the variable `nodeIP` as the IP address of the node.
+    - `cd $CLOUDLESSDIR`
+    - `seamless-bash -e nodeIP`
+    - `export SEAMLESS_COMMUNION_INCOMING=$nodeIP:6543`
+    - `python3 test-jobslave.py`
 
-   The first lines should contain `INCOMING` and `ADD SERVANT`
+The first lines should contain `INCOMING` and `ADD SERVANT`
 
-   The last line should be `None`, not `Local computation has been disabled for this Seamless instance`
+The last line should be `None`.
+If is instead `Local computation has been disabled for this Seamless instance`, then the test has failed.
+
 
 
 ### Switching from host networking to bridge networking
@@ -139,36 +176,38 @@ For both the master and the node, make sure that the bridge network can reach th
     - `exit` (Docker container)
 
 ### Test master-to-node Seamless-to-Seamless communion, with Docker bridge networking.
-    - On the node, do:
-        - `cd $CLOUDLESSDIR`
-        - `docker/commands/cloudless-jobslave-remote jobslave-container $masterIP && docker attach jobslave-container`
-    - On the node, in a second terminal, find out the ephemeral Docker port: `export port=$(docker port jobslave-container| grep 8602 | sed 's/:/ /' | awk '{print $4}'); echo '$port='$port`
 
-    - On the master, do:
-        - Flush Redis DB: `docker exec redis-container redis-cli flushall`
+- On the node, do:
+    - `cd $CLOUDLESSDIR`
+    - `docker/commands/cloudless-jobslave-remote jobslave-container $masterIP && docker attach jobslave-container`
+- On the node, in a second terminal, find out the ephemeral Docker port: `export port=$(docker port jobslave-container| grep 8602 | sed 's/:/ /' | awk '{print $4}'); echo '$port='$port`
 
-        - Find out the bridge IP:
-            ```bash
-            export bridge_ip=$(docker network inspect bridge \
-            | python3 -c '''import json, sys; bridge = json.load(sys.stdin); print(bridge[0]["IPAM"]["Config"][0]["Gateway"])''')
-            echo '$bridge_ip='$bridge_ip
-            ```
+- On the master, do:
+    - Flush Redis DB: `docker exec redis-container redis-cli flushall`
 
-        - `cd $CLOUDLESSDIR`
+    - Find out the bridge IP:
+        ```bash
+        export bridge_ip=$(docker network inspect bridge \
+        | python3 -c '''import json, sys; bridge = json.load(sys.stdin); print(bridge[0]["IPAM"]["Config"][0]["Gateway"])''')
+        echo '$bridge_ip='$bridge_ip
+        ```
 
-        -  Run the following:
-            ```bash
-            docker run --rm \
-            -e "REDIS_HOST="$bridge_ip \
-            -e "SEAMLESS_COMMUNION_INCOMING="$nodeIP:$port \
-            -u jovyan \
-            rpbs/seamless \
-            python3 test-jobslave.py
-            ```
+    - `cd $CLOUDLESSDIR`
 
-   The first lines should contain `INCOMING` and `ADD SERVANT`
+    -  Run the following:
+        ```bash
+        docker run --rm \
+        -e "REDIS_HOST="$bridge_ip \
+        -e "SEAMLESS_COMMUNION_INCOMING="$nodeIP:$port \
+        -u jovyan \
+        rpbs/seamless \
+        python3 test-jobslave.py
+        ```
 
-   The last line should be `None`, not `Local computation has been disabled for this Seamless instance`
+The first lines should contain `INCOMING` and `ADD SERVANT`
+
+The last line should be `None`.
+If is instead `Local computation has been disabled for this Seamless instance`, then the test has failed.
 
 - After the testing, flush Redis with `docker exec redis-container redis-cli flushall`
 
