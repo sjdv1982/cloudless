@@ -18,7 +18,7 @@
 
 - Install Seamless (`docker pull rpbs/seamless && conda -c rpbs install seamless-cli`)
 
-- Define the variable `$masterIP` in `.bashrc.`
+- Define the variable `$masterIP` with `export` in `.bashrc.`
 
 
 # B. Network communication testing
@@ -142,7 +142,7 @@ This should print the same as for the previous test.
     - `python3 ~/seamless-scripts/jobslave.py --communion_id JOBSLAVE --communion_outgoing 6543`
 - On the master, do:
     - Flush Redis DB: `docker exec redis-container redis-cli flushall`
-    - Define the variable `nodeIP` as the IP address of the node.
+    - Define the variable `nodeIP` as the IP address of the node. Use `export` to make it an environment variable.
     - `cd $CLOUDLESSDIR`
     - `seamless-bash -e nodeIP`
     - `export SEAMLESS_COMMUNION_INCOMING=$nodeIP:6543`
@@ -157,7 +157,7 @@ If is instead `Local computation has been disabled for this Seamless instance`, 
 
 ### Switching from host networking to bridge networking
 
-For both the master and the node, make sure that the bridge network can reach the main network. See (https://docs.docker.com/network/bridge/#enable-forwarding-from-docker-containers-to-the-outside-world)[]. Test it with the command: `docker run rpbs/seamless bash -c 'ping www.google.fr'`
+For both the master and the node, make sure that the bridge network can reach the main network. See (https://docs.docker.com/network/bridge/#enable-forwarding-from-docker-containers-to-the-outside-world)[]. Test it with the command: `docker run --rm rpbs/seamless bash -c 'ping www.google.fr'`
 
 ### Test if Redis on the master is reachable from the node, with Docker bridge networking
     - On the node, do:
@@ -183,6 +183,7 @@ For both the master and the node, make sure that the bridge network can reach th
 - On the node, in a second terminal, find out the ephemeral Docker port: `export port=$(docker port jobslave-container| grep 8602 | sed 's/:/ /' | awk '{print $4}'); echo '$port='$port`
 
 - On the master, do:
+    - Define the variable `nodeIP` as the IP address of the node. Use `export` to make it an environment variable.
     - Flush Redis DB: `docker exec redis-container redis-cli flushall`
 
     - Find out the bridge IP:
