@@ -157,33 +157,37 @@ If is instead `Local computation has been disabled for this Seamless instance`, 
 
 ### Switching from host networking to bridge networking
 
-For both the master and the node, make sure that the bridge network can reach the main network. See (https://docs.docker.com/network/bridge/#enable-forwarding-from-docker-containers-to-the-outside-world)[]. Test it with the command: `docker run --rm rpbs/seamless bash -c 'ping www.google.fr'`
+For both the master and the node, make sure that the bridge network can reach the main network. See [this link](https://docs.docker.com/network/bridge/#enable-forwarding-from-docker-containers-to-the-outside-world). Test it with the command: `docker run --rm rpbs/seamless bash -c 'ping www.google.fr'`
 
 ### Test if Redis on the master is reachable from the node, with Docker bridge networking
-    - On the node, do:
-            ```bash
-            docker run --rm \
-            -it \
-            -e "REDIS_HOST="$masterIP \
-            -u jovyan \
-            rpbs/seamless \
-            bash
-            ```
-    - `ping $REDIS_HOST`
-    - `redis-cli -h $REDIS_HOST`
-    - type `keys *` and you will see some entries starting with "buf:" and "bfl:".
-    - `exit` (Redis)
-    - `exit` (Docker container)
+
+- On the node, do:
+    ```bash
+    docker run --rm \
+    -it \
+    -e "REDIS_HOST="$masterIP \
+    -u jovyan \
+    rpbs/seamless \
+    bash
+    ```
+- `ping $REDIS_HOST`
+- `redis-cli -h $REDIS_HOST`
+- type `keys *` and you will see some entries starting with "buf:" and "bfl:".
+- `exit` (Redis)
+- `exit` (Docker container)
 
 ### Test master-to-node Seamless-to-Seamless communion, with Docker bridge networking.
 
 - On the node, do:
     - `cd $CLOUDLESSDIR`
     - `docker/commands/cloudless-jobslave-remote jobslave-container $masterIP && docker attach jobslave-container`
-- On the node, in a second terminal, find out the ephemeral Docker port: `export port=$(docker port jobslave-container| grep 8602 | sed 's/:/ /' | awk '{print $4}'); echo '$port='$port`
+- On the node, in a second terminal, find out the ephemeral Docker port:
+
+`port=$(docker port jobslave-container| grep 8602 | sed 's/:/ /' | awk '{print $4}'); echo '$port='$port`
 
 - On the master, do:
     - Define the variable `nodeIP` as the IP address of the node. Use `export` to make it an environment variable.
+    - The same for the variable `port` from the command above
     - Flush Redis DB: `docker exec redis-container redis-cli flushall`
 
     - Find out the bridge IP:
@@ -200,6 +204,8 @@ For both the master and the node, make sure that the bridge network can reach th
         docker run --rm \
         -e "REDIS_HOST="$bridge_ip \
         -e "SEAMLESS_COMMUNION_INCOMING="$nodeIP:$port \
+        -v `pwd`:/cwd \
+        --workdir /cwd \
         -u jovyan \
         rpbs/seamless \
         python3 test-jobslave.py
@@ -233,26 +239,39 @@ OR:
 (this section is a stub)
 
 It is assumed that you can forward ports to the browser, either by manual SSH tunneling or using VSCode.
-If not, you may want to go to section E first
+If not, you may want to go to section E first.
 
 ## Basic fat graph serving (no jobslaves), with host networking:
-  ```bash
-  cd $CLOUDLESSDIR/graphs
-  ../docker/test-commands/fat-host-networking TEST-FAT testgraph.seamless
-  ```
-  In the IPython window, `ctx.status` should give OK.
-  => port-forward 5813, 5138
-  => open http://localhost:5813/ctx/index.html
 
-  - In a second terminal, start Cloudless with `./start-cloudless-fat.sh`
-  - In a third terminal, connect the instance to Cloudless with:
-   `./connect-instance http://localhost:3124 TEST-INSTANCE --update_port 5138 --rest_port 5813`
-   This should print "Status: 200"
-   => port-forward 3124 (Cloudless port)
-   => open http://localhost:3124/admin/instance_page
-   => Click "Go to instance" or open http://localhost:3124/instance/TEST-INSTANCE/ctx/index.html
-  - Ctrl-D in the first terminal, Ctrl-C in the second.
+Open three terminals on the master. In the first terminal, do the following:
 
+```bash
+cd $CLOUDLESSDIR/graphs
+../docker/test-commands/fat-host-networking TEST-FAT testgraph.seamless
+```
+In the IPython window, `ctx.status` should give OK.
+
+Forward the ports 5813 and 5138 (Seamless ports).
+
+Then, in the browser, open: http://localhost:5813/ctx/index.html
+
+This should reveal the web form of the test service.
+
+In the second terminal, start Cloudless with `./start-cloudless-fat.sh`
+
+In the third terminal, connect the instance to Cloudless with:
+`./connect-instance http://localhost:3124 TEST-INSTANCE --update_port 5138 --rest_port 5813`
+This should print "Status: 200"
+
+Forward the port 3124 (Cloudless port)
+
+Then, in the browser, open: http://localhost:3124/admin/instance_page
+
+Click "Go to instance", or open http://localhost:3124/instance/TEST-INSTANCE/ctx/index.html
+
+Again, this should reveal the web form of the test service.
+
+To terminate, do Ctrl-D in the first terminal, Ctrl-C in the second.
 
 ## Basic fat graph serving (no jobslaves), with normal networking (bridge network):
   ```bash

@@ -1,0 +1,48 @@
+Installation and configuration of Cloudless under nginx
+=======================================================
+
+## Option B: run nginx in a Docker container
+
+This container listens on http://localhost:80/cloudless, and forwards it to Cloudless. Nothing else is done.
+This is the best option if the Cloudless server is already behind an existing web server (nginx or apache) that takes care of
+SSL, DDoS protection, etc.
+
+- Go to the folder `docker/`.
+- If necessary, adapt the `nginx.conf`.
+- You can launch it as follows: `docker run --rm --name nginx-cloudless-container --network host -v $(pwd)/nginx.conf:/etc/nginx/nginx.nf:ro nginx`
+- Alternatively, build the Docker image with `docker build -t nginx-cloudless . `
+- Then, you can launch it as `docker run --rm --name nginx-cloudless-container --network host nginx-cloudless`
+
+## Option B: adding Cloudless to an existing nginx server
+
+- Add the following to your main `nginx.conf` (inside the http block)
+
+```
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    '' close;
+}
+```
+
+- Add "cloudless.conf" to /etc/nginx.
+
+- Set up the server configuration.
+
+If you have already a NGINX virtual server set up, just add `include /etc/nginx/cloudless.conf` to it.
+
+If you don't have one: the following will set up a default port 80 virtual server that just listens to cloudless.
+
+```
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name _;
+    include /etc/nginx/cloudless.conf;
+}
+```
+
+Put this in a file and save it (e.g. as `/etc/nginx/sites-available/cloudless`).
+You may need to adapt it, adding HTTPS/SSL etc.
+Add a soft-link to it in `/etc/nginx/sites-enabled`.
+
+- Restart nginx
