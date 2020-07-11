@@ -9,9 +9,9 @@ SSL, DDoS protection, etc.
 
 - Go to the folder `docker/`.
 - If necessary, adapt the `nginx.conf`.
-- You can launch it as follows: `docker run --rm --name nginx-cloudless-container --network host -v $(pwd)/nginx.conf:/etc/nginx/nginx.nf:ro nginx`
+- You can launch it as follows: `docker run --rm --name nginx-cloudless-container -p 80:80 -v $(pwd)/nginx.conf:/etc/nginx/nginx.conf:ro nginx`
 - Alternatively, build the Docker image with `docker build -t nginx-cloudless . `
-- Then, you can launch it as `docker run --rm --name nginx-cloudless-container --network host nginx-cloudless`
+- Then, you can launch it as `docker run --rm --name nginx-cloudless-container -p 80:80 nginx-cloudless`
 
 ## Option B: adding Cloudless to an existing nginx server
 

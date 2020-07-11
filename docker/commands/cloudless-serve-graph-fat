@@ -28,6 +28,9 @@ c=$(docker run --rm \
   --expose 5813 \
   --expose 5138 \
   -P \
+  -v `pwd`:/cwd \
+  -v /tmp:/tmp \
+  --workdir /cwd \
   -v /var/run/docker.sock:/var/run/docker.sock \
   --group-add $(getent group docker | cut -d: -f3) \
   -u jovyan \

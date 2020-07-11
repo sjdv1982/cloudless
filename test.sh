@@ -16,7 +16,7 @@ docker stop $name >& /dev/null
 set -e
 cd graphs
 echo 'Start jobslave container' $name
-../docker/commands/cloudless-jobslave-thin $name
+../docker/commands/cloudless-jobslave $name
 port=$(docker port $name | grep 8602 | sed 's/:/ /' | awk '{print $4}')
 export SEAMLESS_COMMUNION_INCOMING=$bridge_ip:$port
 ../docker/test-commands/thin $name2 testgraph.seamless

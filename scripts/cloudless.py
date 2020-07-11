@@ -399,3 +399,4 @@ if __name__ == "__main__":
     app.router.add_route('PUT','/connect_to_cloudless', connect_to_cloudless)
     app.router.add_route('GET','/connect_from_cloudless', connect_from_cloudless)
     web.run_app(app,port=cloudless_port)
+    # TODO: kill instances on Ctrl-C
