@@ -220,7 +220,9 @@ If is instead `Local computation has been disabled for this Seamless instance`, 
 
 # C. Starting Cloudless
 
-- Run `init.sh`
+- If `init.sh` has been run already, RedisDB has not been flushed, and there have been no changes in Seamless, you can skip the next two steps.
+
+- Make a backup of the RedisDB. Run `init.sh`, which will flush the RedisDB. Restore the backup.
 
 - Deploy your services. For each service, you will need `service.seamless` and `service.zip` in a directory `$DIR`.
 Then, do:
@@ -231,15 +233,36 @@ cp service.seamless $CLOUDLESSDIR/graphs
 ```
 (A future version of Cloudless will support dynamic deployment/re-deployment)
 
-- Start Cloudless with one of the ./start-cloudless*.sh scripts
-OR:
-- Proceed to the next section
+- Start Cloudless with one of the ./start-cloudless*.sh scripts. The three basic options are "fat", "local" and "remote".
+
+Whenever a Seamless instance is launched, Cloudless will create a Docker container for it, that serves the graph.
+A graph-serving container are named cloudless-123456, where 123456 is the instance ID.
+
+With option "fat", the graph-serving containers are fat, i.e. they do all computation by themselves.
+Otherwise, the containers are thin, i.e. they redirect all computation to the jobslaves.
+The jobslaves are Docker containers named "cloudless-jobslave-1" etc.
+
+With option "local", the jobslaves run on the master. The number of jobslaves is by default 4, but can be set via the command line.
+
+With open "remote", the jobslaves run remotely.
+On the master, this requires the environment variable "CLOUDLESS_NODES" to be set to a comma-separated lists of SSH hosts
+(i.e. IP addresses or entries in ~/.ssh/config)
+
+On each node:
+    - Cloudless must be installed, and $CLOUDLESSDIR must be defined
+    - $masterIP must be defined
+    - $CLOUDLESS_JOBSLAVES must be defined
+
+- Stopping Cloudless kills both the jobslave and the graph serving containers. A future version of Cloudless will monitor the graphs and store them in Redis, so that the graph serving containers can be reconstituted at will.
 
 # D. Cloudless testing
 (this section is a stub)
 
+First, run `init.sh`.
+
 It is assumed that you can forward ports to the browser, either by manual SSH tunneling or using VSCode.
 If not, you may want to go to section E first.
+
 
 ## Basic fat graph serving (no jobslaves), with host networking:
 

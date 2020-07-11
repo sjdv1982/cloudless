@@ -1,9 +1,9 @@
 Installation and configuration of Cloudless under nginx
 =======================================================
 
-## Option B: run nginx in a Docker container
+## Option A: run nginx in a Docker container
 
-This container listens on http://localhost:80/cloudless, and forwards it to Cloudless. Nothing else is done.
+This container listens on http://localhost:80/cloudless, and forwards traffic to Cloudless (port 3124 on the host). Nothing else is done.
 This is the best option if the Cloudless server is already behind an existing web server (nginx or apache) that takes care of
 SSL, DDoS protection, etc.
 
@@ -12,6 +12,7 @@ SSL, DDoS protection, etc.
 - You can launch it as follows: `docker run --rm --name nginx-cloudless-container -p 80:80 -v $(pwd)/nginx.conf:/etc/nginx/nginx.conf:ro nginx`
 - Alternatively, build the Docker image with `docker build -t nginx-cloudless . `
 - Then, you can launch it as `docker run --rm --name nginx-cloudless-container -p 80:80 nginx-cloudless`
+- In both cases, add a detach (`-d`) option if you don't want to keep the shell open.
 
 ## Option B: adding Cloudless to an existing nginx server
 

@@ -2,14 +2,14 @@
 echo 'Starting up job slaves...'
 nslaves=$1
 : ${nslaves:=4}
-communion_incoming=$(python3 scripts/jobslaves.py $nslaves)
+set -u -e
+name_template=cloudless-jobslave
+communion_incoming=$(python3 scripts/jobslaves.py $nslaves $name_template)
 echo "Job slaves are listening at " $communion_incoming
 export SEAMLESS_COMMUNION_INCOMING=$communion_incoming
 echo 'Starting up Cloudless web server...'
 python3 scripts/cloudless.py cloudless-serve-graph-thin
 if [ $nslaves -gt 0 ]; then
     echo
-    echo 'Killing job slaves'
-    jobslaves=$(seq $nslaves | awk '{print "cloudless-jobslave-" $1}')
-    docker stop $jobslaves
+    ./kill-jobslaves.sh $nslaves $name_template
 fi

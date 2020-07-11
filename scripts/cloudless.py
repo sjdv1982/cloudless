@@ -398,5 +398,14 @@ if __name__ == "__main__":
     app.router.add_route('POST','/admin/kill', browser_kill_instance)
     app.router.add_route('PUT','/connect_to_cloudless', connect_to_cloudless)
     app.router.add_route('GET','/connect_from_cloudless', connect_from_cloudless)
+
+    async def on_shutdown(app):
+        for inst in instances.values():
+            try:
+                container = inst.container
+                if container is not None:
+                    subprocess.getstatusoutput("docker stop {}".format(container))
+            except:
+                traceback.print_exc()
+    app.on_shutdown.append(on_shutdown)
     web.run_app(app,port=cloudless_port)
-    # TODO: kill instances on Ctrl-C
