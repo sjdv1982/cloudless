@@ -4,7 +4,7 @@
 
 ## Installation on the master
 
-- Install Seamless (`docker pull rpbs/seamless && conda -c rpbs install seamless-cli`)
+- Install Seamless (`docker pull rpbs/seamless && conda install -c rpbs seamless-cli`)
 
 - Install Cloudless requirements with `pip install -r requirements.txt`.
 
@@ -12,11 +12,14 @@
 
 - Start Redis: `seamless-redis`. It is assumed to be always running.
 
+NOTE: The Seamless Redis DB will store its data in `~/.seamless/redis`, creating this directory
+if it doesn't exist. You may want to create it yourself first, as a softlink to a different directory.
+
 ## Installation on the remote node
 
 - Clone the Cloudless repo. Define $CLOUDLESSDIR in your .bashrc.
 
-- Install Seamless (`docker pull rpbs/seamless && conda -c rpbs install seamless-cli`)
+- Install Seamless (`docker pull rpbs/seamless && conda install -c rpbs seamless-cli`)
 
 - Define the variable `$masterIP` with `export` in `.bashrc.`
 
@@ -53,6 +56,7 @@ The first lines should contain `INCOMING` and `ADD SERVANT`
 The last line should be `None`.
 If is instead `Local computation has been disabled for this Seamless instance`, then the test has failed.
 
+Do Ctrl-C in the first terminal, type `exit` in the second.
 
 ### Test master-to-master Seamless-to-Seamless communion, with Docker bridge networking.
 
@@ -83,10 +87,17 @@ If is instead `Local computation has been disabled for this Seamless instance`, 
         -e "REDIS_HOST="$bridge_ip \
         -e "SEAMLESS_COMMUNION_INCOMING="$bridge_ip:$port \
         -u jovyan \
+        -v $(pwd):/cwd \
+        --workdir /cwd \
         rpbs/seamless \
         python3 test-jobslave.py
         ```
+The first lines should contain `INCOMING` and `ADD SERVANT`
 
+The last line should be `None`.
+If is instead `Local computation has been disabled for this Seamless instance`, then the test has failed.
+
+Do Ctrl-C in the first terminal.
 
 ## Master-to-node and node-to-master communication tests
 
@@ -94,7 +105,7 @@ This involves one terminal on the master, one on the remote node. Repeat for eac
 
 ### Test if the node can reach an open port on the master
 
-- On the master: `docker run --rm --network=host jupyter/scipy-notebook`
+- On the master: `docker run --rm --network=host rpbs/seamless`
 
 - On the node: `curl -v $masterIP:8888`
 
@@ -113,7 +124,7 @@ This should print something like:
 
 ### Test if the master can reach an open port on the node
 
-- On the node: `docker run --rm --network=host jupyter/scipy-notebook`
+- On the node: `docker run --rm --network=host rpbs/seamless`
 
 - On the master: define nodeIP, then `curl -v $nodeIP:8888`
 
@@ -131,12 +142,13 @@ This should print the same as for the previous test.
     - `ping $masterIP`
     - `redis-cli -h $masterIP`
     - type `keys *` and you will see some entries starting with "buf:" and "bfl:".
-    - `exit` (Redis)
+    - `exit` (redis-cli)
     - `exit` (Docker container)
 
 ### Test master-to-node Seamless-to-Seamless communion, with Docker host networking.
 - On the node, do:
     - `seamless-bash -e masterIP`
+    - `set -u -e`
     - `export REDIS_HOST=$masterIP`
     - `export SEAMLESS_COMMUNION_OUTGOING_ADDRESS=0.0.0.0`
     - `python3 ~/seamless-scripts/jobslave.py --communion_id JOBSLAVE --communion_outgoing 6543`
@@ -145,6 +157,7 @@ This should print the same as for the previous test.
     - Define the variable `nodeIP` as the IP address of the node. Use `export` to make it an environment variable.
     - `cd $CLOUDLESSDIR`
     - `seamless-bash -e nodeIP`
+    - `set -u -e`
     - `export SEAMLESS_COMMUNION_INCOMING=$nodeIP:6543`
     - `python3 test-jobslave.py`
 
@@ -161,6 +174,10 @@ For both the master and the node, make sure that the bridge network can reach th
 
 ### Test if Redis on the master is reachable from the node, with Docker bridge networking
 
+- On the master, populate Redis with the Seamless default graph for status monitoring:
+
+    `seamless python3 /home/jovyan/seamless-scripts/add-zip.py /home/jovyan/software/seamless/graphs/status-visualization.zip`
+
 - On the node, do:
     ```bash
     docker run --rm \
@@ -173,7 +190,7 @@ For both the master and the node, make sure that the bridge network can reach th
 - `ping $REDIS_HOST`
 - `redis-cli -h $REDIS_HOST`
 - type `keys *` and you will see some entries starting with "buf:" and "bfl:".
-- `exit` (Redis)
+- `exit` (redis-cli)
 - `exit` (Docker container)
 
 ### Test master-to-node Seamless-to-Seamless communion, with Docker bridge networking.
@@ -256,7 +273,6 @@ On each node:
 - Stopping Cloudless kills both the jobslave and the graph serving containers. A future version of Cloudless will monitor the graphs and store them in Redis, so that the graph serving containers can be reconstituted at will.
 
 # D. Cloudless testing
-(this section is a stub)
 
 First, run `init.sh`.
 
@@ -339,8 +355,12 @@ To terminate, do Ctrl-D in the first terminal, Ctrl-C in the second.
 (this section is a stub)
 
 ## nginx setup
-... (see in config/; TODO make Docker image with .conf inside, need to share port 3124 or use host network!)
+
+Follow the instructions in nginx/README.md . After that, you can run the tests in section D, substituting http://myserver.com/cloudless for http://localhost:3124 .
 
 ## Cloudless-to-Cloudless communication
 
-- Cloudless-to-Cloudless: first: test-proxy.sh => wget. then, use it for Cloudless on a different machine (localhost => RPBS)
+With a running Cloudless publicly server accessible via http://myserver.com/cloudless, you can connect a local Cloudless instance to it. The syntax is `$CLOUDLESSDIR/cloudless-to-cloudless http://localhost:3124 ws://myserver.com/cloudless PROXYNAME`. As long as cloudless-to-cloudless is running, a URL such as http://myserver.com/cloudless/proxy/PROXYNAME/1234567/ctx/index.html` is redirected to `http://localhost:3124/instances/1234567/ctx/index.html`. The proxying is done by cloudless-to-cloudless, much like an SSH tunnel, i.e. no public IP address or URL for localhost is needed.
+Only Seamless instances are proxied; the admin page or "create new instance" page is not.
+
+`test-proxy.sh` provides a test for Cloudless-to-Cloudless communication by setting up two local Cloudless instances, with one of them running under port 4000, and one proxying the other.

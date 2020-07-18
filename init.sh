@@ -1,5 +1,7 @@
 set -u -e
 
+docker exec redis-container redis-cli flushall
+
 [ ! -d $CLOUDLESSDIR/graphs ] && mkdir $CLOUDLESSDIR/graphs
 cd $CLOUDLESSDIR/graphs
 container=$(docker create rpbs/seamless)
