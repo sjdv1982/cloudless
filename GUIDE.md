@@ -346,6 +346,7 @@ To terminate, do Ctrl-D in the first terminal, Ctrl-C in the second.
 
 ## Thin graph serving (with remote jobslaves)
 ... TODO!!
+export CLOUDLESS_NODES,...
 
 ## Thin graph serving (with remote jobslaves), launching graph instances from Cloudless:
 ... (same as for fat, but can monitor docker logs on remote machine)
@@ -360,7 +361,8 @@ Follow the instructions in nginx/README.md . After that, you can run the tests i
 
 ## Cloudless-to-Cloudless communication
 
-With a running Cloudless publicly server accessible via http://myserver.com/cloudless, you can connect a local Cloudless instance to it. The syntax is `$CLOUDLESSDIR/cloudless-to-cloudless http://localhost:3124 ws://myserver.com/cloudless PROXYNAME`. As long as cloudless-to-cloudless is running, a URL such as http://myserver.com/cloudless/proxy/PROXYNAME/1234567/ctx/index.html` is redirected to `http://localhost:3124/instances/1234567/ctx/index.html`. The proxying is done by cloudless-to-cloudless, much like an SSH tunnel, i.e. no public IP address or URL for localhost is needed.
+With a public Cloudless server accessible via http://myserver.com/cloudless, you can connect a local Cloudless instance to it. The syntax is `$CLOUDLESSDIR/cloudless-to-cloudless http://localhost:3124 ws://myserver.com/cloudless PROXYNAME`. As long as cloudless-to-cloudless is running, a URL such as `http://myserver.com/cloudless/proxy/PROXYNAME/1234567/ctx/index.html` is redirected to `http://localhost:3124/instances/1234567/ctx/index.html`. The proxying is done by cloudless-to-cloudless, much like an SSH tunnel, i.e. no public IP address or URL for the local machine is needed. (This is in contrast to `$CLOUDLESSDIR/connect_instance`, where the ports are on the *public server*, not on the local machine that calls `connect_instance`).
+
 Only Seamless instances are proxied; the admin page or "create new instance" page is not.
 
 `test-proxy.sh` provides a test for Cloudless-to-Cloudless communication by setting up two local Cloudless instances, with one of them running under port 4000, and one proxying the other.
