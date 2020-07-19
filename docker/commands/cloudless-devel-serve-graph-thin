@@ -31,6 +31,8 @@ c=$(docker run --rm \
   --expose 5813 \
   --expose 5138 \
   -P \
+  -v `pwd`:/cwd \
+  --workdir /cwd \
   -u jovyan \
   seamless-devel python3 -u /seamless/scripts/serve-graph.py \
     $f --redis --ncores 0 \
