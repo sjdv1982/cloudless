@@ -170,6 +170,12 @@ def launch(service_name, with_status=False):
         err, output = subprocess.getstatusoutput(cmd)
         if err:
             raise LaunchError("Launch output:\n{}\n{}".format(err, output))
+        else:
+            cmd = "docker attach {0} > ../instances/{0}.log 2>&1"
+            container_logger = subprocess.Popen(
+                cmd.format(container),
+                shell=True
+            )
         update_port, rest_port = None, None
         for l in output.splitlines():
             fields = l.split("->")
@@ -195,6 +201,7 @@ def launch(service_name, with_status=False):
         inst.container = container
         inst.service_name = service_name
         inst.with_status = with_status
+        inst.container_logger = container_logger
         instances[instance] = inst
     finally:
         os.chdir(cwd)
@@ -256,6 +263,19 @@ async def browser_launch_instance(req):
     else:
         return result
 
+def stop_container(inst):
+    container = inst.container
+    if container is not None:
+        subprocess.getstatusoutput("docker kill --signal=SIGINT {}".format(container))
+        subprocess.getstatusoutput("docker inspect {0} && docker kill --signal=SIGHUP {0}".format(container))
+        subprocess.getstatusoutput("docker inspect {0} && docker stop {0}".format(container))
+        try:
+            inst.container_logger.communicate(timeout=5)
+        except:
+            traceback.print_exc()
+        os.system("rm -f ../instances/{0}.log".format(container))
+
+
 async def kill_instance(req):
     data = await req.post()
     instance = data.get("instance", None)
@@ -274,9 +294,7 @@ async def kill_instance(req):
             text="Instance does not exist"
         )
     inst = instances.pop(instance)
-    container = inst.container
-    if container is not None:
-        subprocess.getstatusoutput("docker stop {}".format(container))
+    stop_container(inst)
     return web.Response(status=200)
 
 async def browser_kill_instance(req):
@@ -400,12 +418,18 @@ if __name__ == "__main__":
     app.router.add_route('GET','/connect_from_cloudless', connect_from_cloudless)
 
     async def on_shutdown(app):
+        container_loggers = []
         for inst in instances.values():
             try:
-                container = inst.container
-                if container is not None:
-                    subprocess.getstatusoutput("docker stop {}".format(container))
+                stop_container(inst)
             except:
                 traceback.print_exc()
+        os.chdir(service_dir)
+        for container_logger in container_loggers:
+            try:
+                container_logger.communicate(timeout=5)
+            except:
+                traceback.print_exc()
+            os.system("rm -f ../instances/{0}.log".format(container))
     app.on_shutdown.append(on_shutdown)
     web.run_app(app,port=cloudless_port)

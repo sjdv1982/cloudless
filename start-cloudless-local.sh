@@ -10,6 +10,7 @@ communion_incoming=$(python3 scripts/jobslaves.py $nslaves $name_template)
 echo "Job slaves are listening at " $communion_incoming
 export SEAMLESS_COMMUNION_INCOMING=$communion_incoming
 echo 'Starting up Cloudless web server...'
+rm -f instances/*
 python3 scripts/cloudless.py cloudless-serve-graph-thin $port
 if [ $nslaves -gt 0 ]; then
     echo

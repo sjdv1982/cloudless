@@ -16,6 +16,7 @@ import json, sys
 bridge = json.load(sys.stdin)
 print(bridge[0]["IPAM"]["Config"][0]["Gateway"])
 ''')
+: ${REDIS_HOST:=$bridge_ip}
 
 name=$1
 f=$2
@@ -23,7 +24,7 @@ shift 2
 c=$(docker run --rm \
   --detach \
   --name $name \
-  -e "REDIS_HOST="$bridge_ip \
+  -e "REDIS_HOST="$REDIS_HOST \
   -e "SHARESERVER_ADDRESS=0.0.0.0" \
   --expose 5813 \
   --expose 5138 \

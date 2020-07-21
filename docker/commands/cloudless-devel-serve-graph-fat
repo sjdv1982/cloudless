@@ -17,6 +17,7 @@ import json, sys
 bridge = json.load(sys.stdin)
 print(bridge[0]["IPAM"]["Config"][0]["Gateway"])
 ''')
+: ${REDIS_HOST:=$bridge_ip}
 
 name=$1
 f=$2
@@ -26,17 +27,19 @@ c=$(docker run --rm \
   --name $name \
   -v $seamlessdir:/seamless \
   -e "PYTHONPATH=/seamless" \
-  -e "REDIS_HOST="$bridge_ip \
+  -e "REDIS_HOST="$REDIS_HOST \
   -e "SHARESERVER_ADDRESS=0.0.0.0" \
   --expose 5813 \
   --expose 5138 \
   -P \
   -v `pwd`:/cwd \
+  -v /tmp:/tmp \
+  -v `pwd`:/cwd \
   --workdir /cwd \
   -v /var/run/docker.sock:/var/run/docker.sock \
   --group-add $(getent group docker | cut -d: -f3) \
   -u jovyan \
-  seamless-devel python3 -u /home/jovyan/seamless-scripts/serve-graph.py $f --redis \
+  seamless-devel python3 -u /home/jovyan/seamless-scripts/serve-graph.py $f --redis --debug\
   $@ \
 )
 
