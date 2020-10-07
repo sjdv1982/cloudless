@@ -1,9 +1,5 @@
-# Awaiting response on https://github.com/jupyter/jupyter_console/issues/207
-exit 1
-
 set -u -e
 
-# - Current directory is mounted to /cwd, and the command is executed there
 #  - For now, direct Redis access is assumed, via the Redis port 6379
 #    NOTE: THIS IS A BIG SECURITY HOLE, IT ALLOWS CORRUPTION AND SNOOPING OF THE DATABASE
 #  - The share server listens on 0.0.0.0, because I can't find out
@@ -18,15 +14,18 @@ import json, sys
 bridge = json.load(sys.stdin)
 print(bridge[0]["IPAM"]["Config"][0]["Gateway"])
 ''')
+: ${REDIS_HOST:=$bridge_ip}
 
 name=$1
+f=$2
+shift 2
 communion_incoming=${SEAMLESS_COMMUNION_INCOMING}
 c=$(docker run --rm \
   --detach \
   --name $name \
   -v $seamlessdir:/seamless \
   -e "PYTHONPATH=/seamless" \
-  -e "REDIS_HOST="$bridge_ip \
+  -e "REDIS_HOST="$REDIS_HOST \
   -e "SHARESERVER_ADDRESS=0.0.0.0" \
   -e "SEAMLESS_COMMUNION_ID="$name \
   -e "SEAMLESS_COMMUNION_INCOMING="$communion_incoming \
@@ -36,10 +35,10 @@ c=$(docker run --rm \
   -v `pwd`:/cwd \
   --workdir /cwd \
   -u jovyan \
-  rpbs/seamless jupyter console /home/jovyan/seamless-scripts/serve-graph.py -- \
-    $2 --redis --ncores 0 \
+  seamless-devel python3 -u /seamless/scripts/serve-graph.py \
+    $f --redis --ncores 0 \
     --communion_id $name \
-    --interactive \
+    $@ \
 )
 
 docker port $name

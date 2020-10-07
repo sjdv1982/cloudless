@@ -4,7 +4,7 @@ set -u -e
 
 bridge_ip=$(docker network inspect bridge \
   | python3 -c '''
-import json, sys 
+import json, sys
 bridge = json.load(sys.stdin)
 print(bridge[0]["IPAM"]["Config"][0]["Gateway"])
 ''')
@@ -15,9 +15,9 @@ set +e
 docker stop $name >& /dev/null
 set -e
 cd graphs
-echo 'Start jobslave container' $name 
-../docker/commands/seamless-devel-jobslave $name
+echo 'Start jobslave container' $name
+../docker/commands/cloudless-jobslave $name
 port=$(docker port $name | grep 8602 | sed 's/:/ /' | awk '{print $4}')
 export SEAMLESS_COMMUNION_INCOMING=$bridge_ip:$port
-../docker/test-commands/thin $name2 share-pdb.seamless
+../docker/test-commands/thin $name2 testgraph.seamless
 docker stop $name

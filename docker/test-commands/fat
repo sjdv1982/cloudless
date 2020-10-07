@@ -12,22 +12,21 @@ print(bridge[0]["IPAM"]["Config"][0]["Gateway"])
 name=$1
 f=$2
 shift 2
-communion_incoming=${SEAMLESS_COMMUNION_INCOMING}
 docker run --rm \
   -it \
   --name $name \
   -e "REDIS_HOST="$bridge_ip \
   -e "SHARESERVER_ADDRESS=0.0.0.0" \
-  -e "SEAMLESS_COMMUNION_ID="$name \
-  -e "SEAMLESS_COMMUNION_INCOMING="$communion_incoming \
   --expose 5813 \
   --expose 5138 \
   -P \
   -v `pwd`:/cwd \
+  -v /tmp:/tmp \
   --workdir /cwd \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  --group-add $(getent group docker | cut -d: -f3) \
   -u jovyan \
-  rpbs/seamless ipython3 -i /home/jovyan/seamless-scripts/serve-graph.py -- \
+ rpbs/seamless ipython3 -i /home/jovyan/seamless-scripts/serve-graph.py -- \
     --interactive \
-    $f --redis --ncores 0 \
-    --communion_id $name \
+    $f --redis \
     $@
