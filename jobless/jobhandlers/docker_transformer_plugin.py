@@ -1,0 +1,19 @@
+from .file_transformer_plugin import FileTransformerPluginBase
+
+class DockerTransformerPlugin(FileTransformerPluginBase):
+    REQUIRED_TRANSFORMER_PINS = ['docker_command', 'docker_image', "docker_options", "pins_"]
+    TRANSFORMER_CODE_CHECKSUMS = [
+        # Seamless checksums for docker_transformer/executor.py
+        '2899b556035823fd911abfa9ab0948f19c8006e985919a4e1d249a9da2495bd9', # Seamless 0.4
+    ]
+    def __init__(self, *args, **kwargs):
+        from requests.exceptions import ConnectionError
+        import docker as docker_module
+        super().__init__(*args, **kwargs)
+
+    def required_pin_handler(self, pin, transformation):
+        assert pin in self.REQUIRED_TRANSFORMER_PINS
+        if pin == "pins_":
+            return True, False, None, None   # skip
+        else:
+            return False, True, False, False  # no skip, value-only, no JSON, no write-env
