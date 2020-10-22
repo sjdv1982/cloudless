@@ -5,6 +5,7 @@ class DockerTransformerPlugin(FileTransformerPluginBase):
     TRANSFORMER_CODE_CHECKSUMS = [
         # Seamless checksums for docker_transformer/executor.py
         '2899b556035823fd911abfa9ab0948f19c8006e985919a4e1d249a9da2495bd9', # Seamless 0.4
+        'a814c22fe71f58ec2ad5e59b31a480dc66ae185e3f708172eb8c5e20b6fd67eb', # Seamless 0.4.1
     ]
     def __init__(self, *args, **kwargs):
         from requests.exceptions import ConnectionError
