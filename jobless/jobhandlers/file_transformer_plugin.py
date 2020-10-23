@@ -117,10 +117,12 @@ class FileTransformerPluginBase(TransformerPlugin):
                 else:
                     value = pin_buf
             elif json_buffer:
-                if pin_buf[:1] == b'"' and pin_buf[-1:] == b'"':
+                if pin_buf[:1] == b'"' and pin_buf[-2:-1] == b'"':
                     value = json.loads(pin_buf)
+                    value_only = True
                 elif pin_buf[-1:] != b'\n':
                     value = json.loads(pin_buf)
+                    value_only = True
                 else:
                     pass  # we can use the buffer directly
 
@@ -190,6 +192,10 @@ def write_files(prepared_transformation, env, support_symlinks):
             if isinstance(value, bytes):
                 with open(pinfile, "bw") as f:
                     f.write(value)
+            elif isinstance(value, str):
+                with open(pinfile, "w") as f:
+                    f.write(value)
+                    f.write("\n")
             else:
                 with open(pinfile, "w") as f:
                     json.dump(value, f)

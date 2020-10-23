@@ -139,7 +139,10 @@ def read_data(data):
             except Exception:
                 arr = np.frombuffer(data, dtype=np.uint8)
                 return arr.tobytes()
-            result = json.loads(sdata)
+            try:
+                result = json.loads(sdata)
+            except:
+                result = sdata
             return (json.dumps(result) + "\n").encode()
         except ValueError:
             return data
@@ -381,8 +384,7 @@ def parse_resultfile(resultfile):
         result = {}
         for member in tar.getnames():
             data = tar.extractfile(member).read()
-            rdata = read_data(data)
-            result[member] = rdata.decode()
+            result[member] = data.decode()
         return json.dumps(result).encode()
     except (ValueError, tarfile.CompressionError, tarfile.ReadError):
         with open(resultfile, "rb") as f:

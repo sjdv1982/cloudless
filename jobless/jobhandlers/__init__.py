@@ -150,4 +150,4 @@ class JoblessRemoteError(Exception):
 from .bash_transformer_plugin import BashTransformerPlugin
 from .docker_transformer_plugin import DockerTransformerPlugin
 from .shell_backend import ShellBashBackend, ShellDockerBackend
-from .slurm_backend import SlurmBashBackend, SlurmDockerBackend
+from .slurm_backend import SlurmBashBackend, SlurmSingularityBackend

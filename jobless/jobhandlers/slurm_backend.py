@@ -49,7 +49,7 @@ class SlurmBackend(Backend):
             os.chdir(tempdir)
             env = {}
             write_files(prepared_transformation, env, self.support_symlinks)
-            jobid = self.submit_job(jobname, self.SLURM_EXTRA_HEADER, env, code)
+            jobid = self.submit_job(jobname, self.SLURM_EXTRA_HEADER, env, code, prepared_transformation)
         except subprocess.CalledProcessError as exc:
             error_message = str(exc)
             if len(exc.stderr.strip()):
@@ -235,7 +235,7 @@ class SlurmSingularityBackend(SlurmBackend):
         with open("CODE.bash", "w") as f:
             f.write(code + "\n")
         os.chmod("CODE.bash", 0o755)
-        singularity_command = "{} {}/{} CODE.bash".format(
+        singularity_command = "{} {}/{}.simg ./CODE.bash".format(
             self.SINGULARITY_EXEC,
             self.SINGULARITY_DIR,
             docker_image
