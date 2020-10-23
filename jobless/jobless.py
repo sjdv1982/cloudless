@@ -358,7 +358,7 @@ if __name__ == "__main__":
     from jobhandlers import (
         BashTransformerPlugin, DockerTransformerPlugin,
         ShellBashBackend, ShellDockerBackend,
-        SlurmBashBackend, SlurmDockerBackend,
+        SlurmBashBackend, SlurmSingularityBackend,
     )
 
     from concurrent.futures import ThreadPoolExecutor
@@ -373,20 +373,23 @@ if __name__ == "__main__":
     class SlurmBashTransformer(BashTransformerPlugin, SlurmBashBackend):
         pass
 
-    class SlurmDockerTransformer(DockerTransformerPlugin, SlurmDockerBackend):
+    class SlurmSingularityDockerTransformer(DockerTransformerPlugin, SlurmSingularityBackend):
         pass
+
+    #DATABASE_DIR = "~/.seamless/database/"  # TODO: read from config file
+    DATABASE_DIR = "/tmp/seamless-database/"  # TODO: read from config file
 
     jobless_server.jobhandlers = [
         """
         ShellBashTransformer(
             database_client,
             executor=executor,
-            rewriter=("/data/", "~/.seamless/database/")
+            rewriter=("/data/", DATABASE_DIR)
         ),
         ShellDockerTransformer(
             database_client,
             executor=executor,
-            rewriter=("/data/", "~/.seamless/database/")
+            rewriter=("/data/", DATABASE_DIR)
         ),
         """
     ]
@@ -394,15 +397,13 @@ if __name__ == "__main__":
         SlurmBashTransformer(
             database_client,
             executor=executor,
-            rewriter=("/data/", "~/.seamless/database/")
+            rewriter=("/data/", DATABASE_DIR)
         ),
-        """
-        SlurmDockerTransformer(
+        SlurmSingularityDockerTransformer(
             database_client,
             executor=executor,
-            rewriter=("/data/", "~/.seamless/database/")
+            rewriter=("/data/", DATABASE_DIR)
         ),
-        """
     ]
 
 

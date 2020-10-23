@@ -49,7 +49,7 @@ class SlurmBackend(Backend):
             os.chdir(tempdir)
             env = {}
             write_files(prepared_transformation, env, self.support_symlinks)
-            jobid = submit_job(jobname, self.SLURM_EXTRA_HEADER, env, code)
+            jobid = self.submit_job(jobname, self.SLURM_EXTRA_HEADER, env, code)
         except subprocess.CalledProcessError as exc:
             error_message = str(exc)
             if len(exc.stderr.strip()):
@@ -70,6 +70,9 @@ class SlurmBackend(Backend):
         self.coros[checksum] = coro
         return coro, jobid
 
+    def submit_job(self, jobname, slurm_extra_header, env, code, prepared_transformation):
+        """To be implemented by subclass"""
+        raise NotImplementedError
 
     def cancel_job(self, checksum, identifier):
         jobid = identifier
@@ -214,10 +217,27 @@ class SlurmBashBackend(SlurmBackend):
     def get_code(self, transformation, prepared_transformation):
         return prepared_transformation["bashcode"][1]
 
-class SlurmDockerBackend(SlurmBackend):
+    def submit_job(self, jobname, slurm_extra_header, env, code, prepared_transformation):
+        return submit_job(jobname, slurm_extra_header, env, code)
+
+class SlurmSingularityBackend(SlurmBackend):
     support_symlinks = False
     TF_TYPE = "Docker"
-    def __init__(self, *args, **kwargs):
-        raise NotImplementedError
+    #SINGULARITY_DIR = "/scratch/software/singularity/images" # TODO: read from config file
+    SINGULARITY_DIR = "/tmp/images" # TODO: read from config file
+    SINGULARITY_EXEC = "singularity exec" # TODO: read from config file
+
     def get_code(self, transformation, prepared_transformation):
-        raise NotImplementedError
+        return prepared_transformation["docker_command"][1]
+
+    def submit_job(self, jobname, slurm_extra_header, env, code, prepared_transformation):
+        docker_image = prepared_transformation["docker_image"][1]
+        with open("CODE.bash", "w") as f:
+            f.write(code + "\n")
+        os.chmod("CODE.bash", 0o755)
+        singularity_command = "{} {}/{} CODE.bash".format(
+            self.SINGULARITY_EXEC,
+            self.SINGULARITY_DIR,
+            docker_image
+        )
+        return submit_job(jobname, slurm_extra_header, env, singularity_command)
