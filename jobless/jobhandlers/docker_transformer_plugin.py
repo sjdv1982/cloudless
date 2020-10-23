@@ -7,10 +7,6 @@ class DockerTransformerPlugin(FileTransformerPluginBase):
         '2899b556035823fd911abfa9ab0948f19c8006e985919a4e1d249a9da2495bd9', # Seamless 0.4
         'a814c22fe71f58ec2ad5e59b31a480dc66ae185e3f708172eb8c5e20b6fd67eb', # Seamless 0.4.1
     ]
-    def __init__(self, *args, **kwargs):
-        from requests.exceptions import ConnectionError
-        import docker as docker_module
-        super().__init__(*args, **kwargs)
 
     def required_pin_handler(self, pin, transformation):
         assert pin in self.REQUIRED_TRANSFORMER_PINS

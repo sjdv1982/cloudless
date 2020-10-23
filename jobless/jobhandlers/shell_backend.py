@@ -405,6 +405,12 @@ class ShellBashBackend(ShellBackend):
 
 class ShellDockerBackend(ShellBackend):
     support_symlinks = False
+
+    def __init__(self, *args, **kwargs):
+        import docker as docker_module
+        from requests.exceptions import ConnectionError
+        super().__init__(*args, **kwargs)
+
     def run(self, checksum, transformation, prepared_transformation, tempdir, env):
         docker_command = prepared_transformation["docker_command"][1]
         docker_image = prepared_transformation["docker_image"][1]
