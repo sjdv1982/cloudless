@@ -2,7 +2,7 @@
 
 # A. First installation steps
 
-## Installation on the master
+## Installation of the Cloudless master
 
 - Install Seamless (`docker pull rpbs/seamless && conda install -c rpbs seamless-cli`)
 
@@ -15,7 +15,13 @@
 NOTE: The Seamless Redis DB will store its data in `~/.seamless/redis`, creating this directory
 if it doesn't exist. You may want to create it yourself first, as a softlink to a different directory.
 
-## Installation on the remote node
+## Installation of the database adapter
+...
+
+## Installation of Jobless
+...
+
+## Installation on remote nodes (if any)
 
 - Clone the Cloudless repo. Define $CLOUDLESSDIR in your .bashrc.
 
@@ -33,7 +39,7 @@ Make a backup of your Redis DB if needed. Below, it is assumed that it does not 
 
 This involves two terminals on the master
 
-### Test master-to-master Seamless-to-Seamless communion.
+### Test basic master-to-master Seamless-to-Seamless communion.
 
 - In one terminal, do:
 
@@ -60,7 +66,21 @@ If is instead `Local computation has been disabled for this Seamless instance`, 
 
 Do Ctrl-C in the first terminal, type `exit` in the second.
 
+### Test Seamless-to-jobless communion, with Docker bridge networking.
+
+This test is only necessary if the graph-serving Seamless containers
+are "fat", i.e. they do all the work either themselves or delegate it to jobless.
+This test is not necessary if Cloudless is deployed with jobslaves, leading to "thin"
+graph-serving Seamless containers.
+
+...
+
 ### Test master-to-master Seamless-to-Seamless communion, with Docker bridge networking.
+
+These tests are only necessary if Cloudless is deployed with jobslaves, leading to "thin"
+graph-serving Seamless containers.
+They are not necessary if the graph-serving Seamless containers
+are "fat", i.e. they do all the work either themselves or delegate it to jobless.
 
 - In one terminal, do:
 
@@ -104,6 +124,11 @@ Do Ctrl-C in the first terminal.
 ## Master-to-node and node-to-master communication tests
 
 This involves one terminal on the master, one on the remote node. Repeat for each remote node.
+These tests are only necessary if Cloudless is deployed with remote jobslaves.
+They are not necessary if:
+- If there are no jobslaves. This is the case for "fat" graph-serving Seamless containers,
+  that do all the work either themselves or delegate it to jobless.
+- If all jobslaves are local.
 
 ### Test if the node can reach an open port on the master
 
