@@ -142,7 +142,11 @@ class FileTransformerPluginBase(TransformerPlugin):
                         env_value = str(env_value).rstrip("\n")
 
             if not value_only:
+                """
+                ### Disable this for now, for security reasons...
                 filename = self.database_client.get_filename(pin_checksum)
+                """
+                filename = None ###
                 if filename is None:
                     pin_buf = self.database_client.get_buffer(pin_checksum)
                     if pin_buf is None:

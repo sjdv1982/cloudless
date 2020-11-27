@@ -1,6 +1,6 @@
 """
 A jobhandler consists of two parts:
-- A TransformerPlugin. Currently, there is FileTransformerPluginBase, that specialized into
+- A TransformerPlugin. Currently, there is FileTransformerPluginBase, that is specialized into
   BashTransformerPlugin and DockerTransformerPlugin
 - A Backend. Currently, there is ShellBashBackend, ShellDockerBackend and SlurmBackend for file transformers.
 
@@ -13,7 +13,7 @@ Jobs are submitted by checksum. There is also a job status API, which can return
     0: Job has exception. Exception is returned as a string, i.e. "return 0, exc"
     1: Job is runnable. None is returned.
     2: Job is running; progress and preliminary checksum are returned, i.e. "return 2, progress, prelim"
-    3: Job is known; job checksum is returned, i.e. "return 3, job_checksum"
+    3: Job result is known; job result checksum is returned, i.e. "return 3, job_checksum"
 
 """
 

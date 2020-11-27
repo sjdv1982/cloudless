@@ -3,6 +3,7 @@
 import requests
 import numpy as np
 import json
+from hashlib import sha3_256
 
 session = requests.Session()
 
@@ -74,7 +75,11 @@ class DatabaseClient:
         }
         response = self.send_request(request)
         if response is not None:
-            return response.content
+            result = response.content
+            hash = sha3_256(result)
+            verify_checksum = hash.digest()
+            assert checksum == verify_checksum, "Database corruption!!! Checksum {}".format(checksum.hex())
+            return result
 
     def get_buffer_length(self, checksum):
         if isinstance(checksum, str):
@@ -123,7 +128,6 @@ class DatabaseClient:
             raise Exception((response.status_code, response.text))
         return response
 
-### from ...mixed.io.serialization import serialize
 import json
 def serialize(request):
     return json.dumps(request)
