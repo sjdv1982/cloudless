@@ -10,16 +10,43 @@
 
 - Define $CLOUDLESSDIR in your .bashrc
 
-- Start Redis: `seamless-redis`. It is assumed to be always running.
+## Setup of the database adapter
 
-NOTE: The Seamless Redis DB will store its data in `~/.seamless/redis`, creating this directory
-if it doesn't exist. You may want to create it yourself first, as a softlink to a different directory.
+  1. You need to setup a database.yaml, see /cloudless/jobless/tests/database-minimal.yaml for an example.
+  2. Define a database startup command.
+     For an example script that uses singularity, see /cloudless/jobless/tests/start-seamless-database.
+     To start it up using Docker, copy and adapt `seamless-database`
+  3. Start the Seamless database. For the rest of the guide, it is assumed to be always running.
 
-## Installation of the database adapter
-...
+### How to delete your database
 
-## Installation of Jobless
-...
+Deletion has to be done for each backend separately.
+
+If your DB has a flatfile backend:
+    `cd <DB_DIRECTORY>`, then:
+    `rm *-* -f`
+
+If your DB has a Redis backend:
+    Flush Redis DB: `docker exec redis-container redis-cli flushall`
+
+## Setting up jobless
+
+Like Cloudless, jobless runs without containerization.
+Jobless configuration needs to be done in a .yaml file.
+See /cloudless/jobless/tests/local.yaml for a minimal example, where bash transformers and Docker transformers
+ are run as jobs locally.
+Launch jobless with python3 /cloudless/jobless/jobless.py jobless-config.yaml
+
+### Testing jobless
+
+- Delete the database
+- Make sure that the Docker images "ubuntu", "rpbs/seamless" and "rpbs/autodock" are available
+  as Docker or singularity images in the place where the jobs will be run.
+- Go to /cloudless/jobless/tests
+- Launch a shell in a Seamless container with `seamless-bash`
+- Run the tests bash.py, docker_.py and autodock.py with python3.
+  See the .expected-output files in the same folder.
+  If the output contains instead `Local computation has been disabled for this Seamless instance`, then the test has failed.
 
 ## Installation on remote nodes (if any)
 
@@ -32,8 +59,7 @@ if it doesn't exist. You may want to create it yourself first, as a softlink to 
 
 # B. Network communication testing
 
-Make a backup of your Redis DB if needed. Below, it is assumed that it does not contain anything else that needs to be saved, and can be flushed (deleted) at will.
-
+Make a backup of your DB if needed. Below, it is assumed that it does not contain anything else that needs to be saved, and can be deleted at will.
 
 ## Master-to-master communication tests
 
@@ -41,13 +67,18 @@ This involves two terminals on the master
 
 ### Test basic master-to-master Seamless-to-Seamless communion.
 
+This test is  only necessary if Cloudless is deployed with jobslaves, leading to "thin"
+graph-serving Seamless containers.
+They are not necessary if the graph-serving Seamless containers
+are "fat", i.e. they do all the work either themselves or delegate it to jobless.
+
 - In one terminal, do:
 
     `seamless python3 /home/jovyan/seamless-scripts/jobslave.py --communion_id JOBSLAVE --communion_outgoing 6543`
 
 - In another terminal:
 
-    Flush Redis DB: `docker exec redis-container redis-cli flushall`
+    Delete your DB.
 
     Then, do:
     ```bash
@@ -68,16 +99,13 @@ Do Ctrl-C in the first terminal, type `exit` in the second.
 
 ### Test Seamless-to-jobless communion, with Docker bridge networking.
 
-This test is only necessary if the graph-serving Seamless containers
-are "fat", i.e. they do all the work either themselves or delegate it to jobless.
-This test is not necessary if Cloudless is deployed with jobslaves, leading to "thin"
-graph-serving Seamless containers.
-
-...
+See "testing jobless".
 
 ### Test master-to-master Seamless-to-Seamless communion, with Docker bridge networking.
 
-These tests are only necessary if Cloudless is deployed with jobslaves, leading to "thin"
+The first test is useful to see if Docker bridge networking is working properly.
+
+For the rest, these tests are only necessary if Cloudless is deployed with jobslaves, leading to "thin"
 graph-serving Seamless containers.
 They are not necessary if the graph-serving Seamless containers
 are "fat", i.e. they do all the work either themselves or delegate it to jobless.
@@ -90,7 +118,7 @@ are "fat", i.e. they do all the work either themselves or delegate it to jobless
 
 - In a second terminal, do:
 
-    - Flush Redis DB: `docker exec redis-container redis-cli flushall`
+    - Delete the DB
 
     - Find out the bridge IP:
         ```bash
@@ -106,13 +134,14 @@ are "fat", i.e. they do all the work either themselves or delegate it to jobless
     -  Run the following:
         ```bash
         docker run --rm \
-        -e "REDIS_HOST="$bridge_ip \
+        -e "SEAMLESS_DATABASE_HOST="$bridge_ip \
         -e "SEAMLESS_COMMUNION_INCOMING="$bridge_ip:$port \
-        -u jovyan \
+        -u `id -u` \
+        --group-add users \
         -v $(pwd):/cwd \
         --workdir /cwd \
         rpbs/seamless \
-        python3 test-jobslave.py
+        start.sh python3 test-jobslave.py
         ```
 The first lines should contain `INCOMING` and `ADD SERVANT`
 
@@ -123,12 +152,12 @@ Do Ctrl-C in the first terminal.
 
 ## Master-to-node and node-to-master communication tests
 
-This involves one terminal on the master, one on the remote node. Repeat for each remote node.
+This involves one terminal on the master, one on the remote Seamless node. Repeat for each remote node.
 These tests are only necessary if Cloudless is deployed with remote jobslaves.
 They are not necessary if:
 - If there are no jobslaves. This is the case for "fat" graph-serving Seamless containers,
   that do all the work either themselves or delegate it to jobless.
-- If all jobslaves are local.
+- If all jobslaves are local, i.e. there are no remote Seamless nodes.
 
 ### Test if the node can reach an open port on the master
 
@@ -160,6 +189,10 @@ This should print the same as for the previous test.
 
 ### Test if Redis on the master is reachable from the node, with Docker host networking:
 
+This test is only necessary if:
+1. the database has a Redis backend,
+2. a database adapter runs on each node.
+
 - On the master, populate Redis with the Seamless default graph for status monitoring:
 
     `seamless python3 /home/jovyan/seamless-scripts/add-zip.py /home/jovyan/software/seamless/graphs/status-visualization.zip`
@@ -176,11 +209,11 @@ This should print the same as for the previous test.
 - On the node, do:
     - `seamless-bash -e masterIP`
     - `set -u -e`
-    - `export REDIS_HOST=$masterIP`
+    - `export SEAMLESS_DATABASE_HOST=$masterIP`
     - `export SEAMLESS_COMMUNION_OUTGOING_ADDRESS=0.0.0.0`
     - `python3 ~/seamless-scripts/jobslave.py --communion_id JOBSLAVE --communion_outgoing 6543`
 - On the master, do:
-    - Flush Redis DB: `docker exec redis-container redis-cli flushall`
+    - Delete the DB
     - Define the variable `nodeIP` as the IP address of the node. Use `export` to make it an environment variable.
     - `cd $CLOUDLESSDIR`
     - `seamless-bash -e nodeIP`
@@ -201,6 +234,10 @@ For both the master and the node, make sure that the bridge network can reach th
 
 ### Test if Redis on the master is reachable from the node, with Docker bridge networking
 
+This test is only necessary if:
+1. the database has a Redis backend,
+2. a database adapter runs on each node.
+
 - On the master, populate Redis with the Seamless default graph for status monitoring:
 
     `seamless python3 /home/jovyan/seamless-scripts/add-zip.py /home/jovyan/software/seamless/graphs/status-visualization.zip`
@@ -209,13 +246,14 @@ For both the master and the node, make sure that the bridge network can reach th
     ```bash
     docker run --rm \
     -it \
-    -e "REDIS_HOST="$masterIP \
-    -u jovyan \
+    -e "SEAMLESS_DATABASE_HOST="$masterIP \
+    -u `id -u` \
+    --group-add users \
     rpbs/seamless \
-    bash
+    start.sh
     ```
-- `ping $REDIS_HOST`
-- `redis-cli -h $REDIS_HOST`
+- `ping $SEAMLESS_DATABASE_HOST`
+- `redis-cli -h $SEAMLESS_DATABASE_HOST`
 - type `keys *` and you will see some entries starting with "buf:" and "bfl:".
 - `exit` (redis-cli)
 - `exit` (Docker container)
@@ -232,7 +270,7 @@ For both the master and the node, make sure that the bridge network can reach th
 - On the master, do:
     - Define the variable `nodeIP` as the IP address of the node. Use `export` to make it an environment variable.
     - The same for the variable `port` from the command above
-    - Flush Redis DB: `docker exec redis-container redis-cli flushall`
+    - Delete the DB
 
     - Find out the bridge IP:
         ```bash
@@ -246,13 +284,14 @@ For both the master and the node, make sure that the bridge network can reach th
     -  Run the following:
         ```bash
         docker run --rm \
-        -e "REDIS_HOST="$bridge_ip \
+        -e "SEAMLESS_DATABASE_HOST="$bridge_ip \
         -e "SEAMLESS_COMMUNION_INCOMING="$nodeIP:$port \
         -v `pwd`:/cwd \
         --workdir /cwd \
-        -u jovyan \
+        -u `id -u` \
+        --group-add users \
         rpbs/seamless \
-        python3 test-jobslave.py
+        start.sh python3 test-jobslave.py
         ```
 
 The first lines should contain `INCOMING` and `ADD SERVANT`
@@ -260,13 +299,15 @@ The first lines should contain `INCOMING` and `ADD SERVANT`
 The last line should be `None`.
 If is instead `Local computation has been disabled for this Seamless instance`, then the test has failed.
 
-- After the testing, flush Redis with `docker exec redis-container redis-cli flushall`
+- After the testing, delete the DB
 
 # C. Starting Cloudless
 
-- If `init.sh` has been run already, RedisDB has not been flushed, and there have been no changes in Seamless, you can skip the next two steps.
+- If `init.sh` has been run already, and there is no new Seamless version, you can skip the next two steps.
 
-- Make a backup of the RedisDB. Run `init.sh`, which will flush the RedisDB. Restore the backup.
+- Make a backup of your DB. Then, clean up entries that do not correspond to computation results that you want to keep.
+
+- Run `init.sh`.
 
 - Deploy your services. For each service, you will need `service.seamless` and `service.zip` in a directory `$DIR`.
 Then, do:
@@ -282,7 +323,8 @@ cp service.seamless $CLOUDLESSDIR/graphs
 Whenever a Seamless instance is launched, Cloudless will create a Docker container for it, that serves the graph.
 A graph-serving container are named cloudless-123456, where 123456 is the instance ID.
 
-With option "fat", the graph-serving containers are fat, i.e. they do all computation by themselves.
+With option "fat", the graph-serving containers are fat, i.e. they do all computation by themselves,
+ unless they can delegate it to jobless.
 Otherwise, the containers are thin, i.e. they redirect all computation to the jobslaves.
 The jobslaves are Docker containers named "cloudless-jobslave-1" etc.
 
@@ -305,7 +347,6 @@ First, run `init.sh`.
 
 It is assumed that you can forward ports to the browser, either by manual SSH tunneling or using VSCode.
 If not, you may want to go to section E first.
-
 
 ## Basic fat graph serving (no jobslaves), with host networking:
 
@@ -380,7 +421,6 @@ export CLOUDLESS_NODES,...
 
 
 # E. Web proxying
-(this section is a stub)
 
 ## nginx setup
 

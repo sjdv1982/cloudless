@@ -1,7 +1,7 @@
 from . import Backend, SeamlessTransformationError, JoblessRemoteError
 
 import asyncio
-import os, tempfile, shutil
+import sys, os, tempfile, shutil
 import psutil
 import json
 import subprocess, tarfile
@@ -54,6 +54,7 @@ def kill_children():
             pass
 
 class ShellBackend(Backend):
+    JOB_TEMPDIR = None
     support_symlinks = True
     def __init__(self, *args, executor, **kwargs):
         self.executor = executor
@@ -72,7 +73,7 @@ class ShellBackend(Backend):
         global PROCESS
         PROCESS = None
         old_cwd = os.getcwd()
-        tempdir = tempfile.mkdtemp(prefix="jobless-")
+        tempdir = tempfile.mkdtemp(prefix="jobless-", dir=self.JOB_TEMPDIR)
         try:
             os.chdir(tempdir)
             env = {}
@@ -87,6 +88,8 @@ class ShellBackend(Backend):
     def launch_transformation(self, checksum, transformation, prepared_transformation):
         prepared_transformation = prepared_transformation.copy()
         for key in prepared_transformation:
+            if key == "__checksum__":
+                continue
             filename, value, env_value = prepared_transformation[key]
             if filename is None:
                 continue
@@ -155,7 +158,7 @@ trap 'jobs -p | xargs -r kill' EXIT
 """
         bashcode2 = bash_header + bashcode
         process = subprocess.run(
-            bashcode2, capture_output=True, shell=True, check=True,
+            ["-i", bashcode2], capture_output=True, shell=True, check=True,
             executable='/bin/bash',
             env=env
         )
@@ -398,6 +401,8 @@ def parse_resultfile(resultfile):
 class ShellBashBackend(ShellBackend):
     support_symlinks = True
     def run(self, checksum, transformation, prepared_transformation, tempdir, env):
+        msg = "Submit shell bash job, checksum {}"
+        print(msg.format(prepared_transformation["__checksum__"]), file=sys.stderr)
         bashcode = prepared_transformation["bashcode"][1]
         resultfile = "RESULT"
         try:
@@ -416,6 +421,14 @@ class ShellDockerBackend(ShellBackend):
     def run(self, checksum, transformation, prepared_transformation, tempdir, env):
         docker_command = prepared_transformation["docker_command"][1]
         docker_image = prepared_transformation["docker_image"][1]
+        msg = "Submit shell docker job, checksum {}, image {}"
+        print(
+            msg.format(
+                prepared_transformation["__checksum__"],
+                docker_image
+            ),
+            file=sys.stderr
+        )
         resultfile = "RESULT"
         try:
             return execute_docker(docker_command, docker_image, tempdir, env, resultfile)

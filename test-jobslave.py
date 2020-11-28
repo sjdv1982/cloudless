@@ -4,18 +4,19 @@ k="SEAMLESS_COMMUNION_INCOMING"
 if k not in os.environ:
     raise Exception("environment variable {} must be set, e.g. 'node1:8602,node2:8603' ".format(k))
 
-params = {}
-redis_host = os.environ.get("REDIS_HOST")
-if redis_host is not None:
-    params["host"] = redis_host
-
-
 import seamless
 seamless.set_ncores(0)
 from seamless import communion_server
 
-redis_sink = seamless.RedisSink(**params)
-redis_cache = seamless.RedisCache(**params)
+params = {}
+db_host = os.environ.get("SEAMLESS_DATABASE_HOST")
+if db_host is not None:
+    params["host"] = db_host
+db_port = os.environ.get("SEAMLESS_DATABASE_PORT")
+if db_port is not None:
+    params["port"] = db_port
+seamless.database_sink.connect(**params)
+seamless.database_cache.connect(**params)
 
 communion_server.configure_master(
     transformation_job=True,

@@ -30,20 +30,6 @@ def is_port_in_use(address, port): # KLUDGE: For some reason, websockets does no
 
 import os, sys, asyncio, time, functools, json, traceback, base64, websockets
 
-# TODO: read this from YAML config
-
-port = None
-_port = os.environ.get("JOBLESS_PORT")
-
-try:
-    port = int(_port)
-except TypeError:
-    print_error("JOBLESS_PORT: invalid port '%s'" % port)
-jobless_address = os.environ.get("JOBLESS_ADDRESS")
-if jobless_address is None:
-    jobless_address = "localhost"
-
-
 master_config = {
     "buffer": False,
     "buffer_status": False,
@@ -85,11 +71,12 @@ class JoblessServer:
     future = None
     PROTOCOL = ("seamless", "communion", "0.2.1")
     _started = False
-    def __init__(self):
-        cid = os.environ.get("JOBLESS_COMMUNION_ID")
-        if cid is None:
-            cid = hash(int(id(self)) + int(10000*time.time()))
-        self.id = cid
+    def __init__(self, address, port, communion_id):
+        self.address = address
+        self.port = int(port)
+        if communion_id is None:
+            communion_id = hash(int(id(self)) + int(10000*time.time()))
+        self.communion_id = communion_id
         self.peers = {}  # peer-id => connection, config
         self.rev_peers = {} # connection => peer-id
         self.message_count = {}
@@ -145,26 +132,26 @@ class JoblessServer:
             await websocket.send("No Seamless communion id provided")
             websocket.close()
             return
-        print_warning("OUTGOING", self.id, peer_config["id"])
+        print_warning("OUTGOING", self.communion_id, peer_config["id"])
         await websocket.send(json.dumps(config))
         await self._listen_peer(websocket, peer_config)
 
     async def start(self):
         config = {
             "protocol": self.PROTOCOL,
-            "id": self.id,
+            "id": self.communion_id,
             "master": master_config,
             "servant": servant_config
         }
         import websockets
 
         coros = []
-        if is_port_in_use(jobless_address, port): # KLUDGE
-            print("ERROR: port %d already in use" % port)
+        if is_port_in_use(self.address, self.port): # KLUDGE
+            print("ERROR: port %d already in use" % self.port)
             raise Exception
         server = functools.partial(self._serve, config)
-        coro_server = websockets.serve(server, jobless_address, port)
-        print("Set up a communion port %d" % port)
+        coro_server = websockets.serve(server, self.address, self.port)
+        print("Set up a communion port %d" % self.port)
         await coro_server
 
 
@@ -339,72 +326,101 @@ class JoblessServer:
             print_info("Client sends response, but jobless doesn't make requests")
         return await self._process_request_from_peer(peer, message)
 
+from jobhandlers import (
+    BashTransformerPlugin, DockerTransformerPlugin,
+    ShellBashBackend, ShellDockerBackend,
+    SlurmBashBackend, SlurmSingularityBackend,
+)
+
+class ShellBashJobHandler(BashTransformerPlugin, ShellBashBackend):
+    pass
+
+class ShellDockerJobHandler(DockerTransformerPlugin, ShellDockerBackend):
+    pass
+
+class SlurmBashJobHandler(BashTransformerPlugin, SlurmBashBackend):
+    pass
+
+class SlurmSingularityDockerJobHandler(DockerTransformerPlugin, SlurmSingularityBackend):
+    pass
+
+jobhandler_classes = {
+    # mapping of (type, backend, sub_backend) to jobhandler class
+
+    ("bash", "shell", None): ShellBashJobHandler,
+
+    ("docker", "shell", None): ShellDockerJobHandler,
+
+    ("bash", "slurm", None): SlurmBashJobHandler,
+
+    ("docker", "slurm", "singularity"): SlurmSingularityDockerJobHandler,
+}
 
 if __name__ == "__main__":
+    import ruamel.yaml
+    yaml = ruamel.yaml.YAML(typ='safe')
+
+    yaml_file = sys.argv[1]
+    config = yaml.load(open(yaml_file))
 
     from database_client import DatabaseClient
     database_client = DatabaseClient()
     database_client.connect()
 
-    jobless_server = JoblessServer()
+    address = config["address"]
+    port = int(config["port"])
+    communion_id = config.get("communion_id")
+    jobless_server = JoblessServer(
+        address=address,
+        port=port,
+        communion_id=communion_id
+    )
+
     asyncio.get_event_loop().run_until_complete(jobless_server.start())
 
-    """
-    TODO: config: read yaml
-    => import jobhandlers and start them up
-    """
+    flatfile_rewriters = []
+    for d in config["flatfile_rewriters"]:
+        flatfile_rewriters.append((
+            d["mounted"],
+            d["external"]
+        ))
+    if len(flatfile_rewriters) > 1: raise NotImplementedError
 
-    # Hard coded:
-    from jobhandlers import (
-        BashTransformerPlugin, DockerTransformerPlugin,
-        ShellBashBackend, ShellDockerBackend,
-        SlurmBashBackend, SlurmSingularityBackend,
-    )
+    rewriter = flatfile_rewriters[0] if len(flatfile_rewriters) else None
 
     from concurrent.futures import ThreadPoolExecutor
     executor = ThreadPoolExecutor()
 
-    class ShellBashTransformer(BashTransformerPlugin, ShellBashBackend):
-        pass
-
-    class ShellDockerTransformer(DockerTransformerPlugin, ShellDockerBackend):
-        pass
-
-    class SlurmBashTransformer(BashTransformerPlugin, SlurmBashBackend):
-        pass
-
-    class SlurmSingularityDockerTransformer(DockerTransformerPlugin, SlurmSingularityBackend):
-        pass
-
-    #DATABASE_DIR = "~/.seamless/database/"  # TODO: read from config file
-    DATABASE_DIR = "/tmp/seamless-database/"  # TODO: read from config file
-
-    jobless_server.jobhandlers = [
-        """
-        ShellBashTransformer(
+    jobhandlers = []
+    for jobhandler in config["jobhandlers"]:
+        jtype = jobhandler["type"]
+        backend = jobhandler["backend"]
+        sub_backend = jobhandler.get("sub_backend")
+        key = jtype, backend, sub_backend
+        if key not in jobhandler_classes:
+            msg = "No jobhandler class for type={}, backend={}, sub_backend={}"
+            print(
+                msg.format(repr(jtype), repr(backend), repr(sub_backend)),
+                file=sys.stderr
+            )
+            sys.exit(1)
+        jobhandler_class = jobhandler_classes[key]
+        jh = jobhandler_class(
             database_client,
             executor=executor,
-            rewriter=("/data/", DATABASE_DIR)
-        ),
-        ShellDockerTransformer(
-            database_client,
-            executor=executor,
-            rewriter=("/data/", DATABASE_DIR)
-        ),
-        """
-    ]
-    jobless_server.jobhandlers = [
-        SlurmBashTransformer(
-            database_client,
-            executor=executor,
-            rewriter=("/data/", DATABASE_DIR)
-        ),
-        SlurmSingularityDockerTransformer(
-            database_client,
-            executor=executor,
-            rewriter=("/data/", DATABASE_DIR)
-        ),
-    ]
+            rewriter=rewriter
+        )
+        jh.JOB_TEMPDIR = jobhandler.get("job_tempdir")
+        if backend == "slurm":
+            jh.SLURM_EXTRA_HEADER = jobhandler.get("slurm_extra_header")
+            jh.STATUS_POLLING_INTERVAL = jobhandler["status_polling_interval"]
 
+        if sub_backend == "singularity":
+            jh.SINGULARITY_IMAGE_DIR = jobhandler["singularity_image_dir"]
+            jh.SINGULARITY_EXEC = jobhandler["singularity_exec"]
+
+        jobhandlers.append(jh)
+
+    jobless_server.jobhandlers = jobhandlers
 
     asyncio.get_event_loop().run_forever()

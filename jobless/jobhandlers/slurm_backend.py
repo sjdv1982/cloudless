@@ -1,7 +1,7 @@
 from . import Backend, SeamlessTransformationError, JoblessRemoteError
 
 import asyncio
-import os, tempfile, shutil
+import sys, os, tempfile, shutil
 import psutil
 import json
 import subprocess, tarfile
@@ -12,8 +12,9 @@ import traceback
 
 class SlurmBackend(Backend):
     support_symlinks = True
-    SQUEUE_POLLING_INTERVAL = 2.0   # TODO: conf file
+    STATUS_POLLING_INTERVAL = 2.0   # TODO: conf file
     SLURM_EXTRA_HEADER = None # TODO: conf file
+    JOB_TEMPDIR = None
     def __init__(self, *args, executor, **kwargs):
         self.executor = executor
         self.coros = {}
@@ -34,6 +35,8 @@ class SlurmBackend(Backend):
 
         prepared_transformation = prepared_transformation.copy()
         for key in prepared_transformation:
+            if key == "__checksum__":
+                continue
             filename, value, env_value = prepared_transformation[key]
             if filename is None:
                 continue
@@ -44,7 +47,7 @@ class SlurmBackend(Backend):
         code = self.get_code(transformation, prepared_transformation)
 
         old_cwd = os.getcwd()
-        tempdir = tempfile.mkdtemp(prefix="jobless-")
+        tempdir = tempfile.mkdtemp(prefix="jobless-",dir=self.JOB_TEMPDIR)
         try:
             os.chdir(tempdir)
             env = {}
@@ -64,7 +67,7 @@ class SlurmBackend(Backend):
             os.chdir(old_cwd)
 
         if jobid is not None:
-            coro = await_job(jobname, jobid, code, self.TF_TYPE, tempdir, self.SQUEUE_POLLING_INTERVAL, "RESULT")
+            coro = await_job(jobname, jobid, code, self.TF_TYPE, tempdir, self.STATUS_POLLING_INTERVAL, "RESULT")
             self.jobs.add(jobid)
 
         self.coros[checksum] = coro
@@ -168,7 +171,7 @@ async def await_job(jobname, identifier, code, tftype, tempdir, polling_interval
             result = parse_resultfile(resultfile)
     finally:
         os.chdir(old_cwd)
-        shutil.rmtree(tempdir, ignore_errors=True)
+        ###shutil.rmtree(tempdir, ignore_errors=True) ###
 
     error_msg = None
     if exit_code > 0:
@@ -218,14 +221,13 @@ class SlurmBashBackend(SlurmBackend):
         return prepared_transformation["bashcode"][1]
 
     def submit_job(self, jobname, slurm_extra_header, env, code, prepared_transformation):
+        msg = "Submit slurm bash job {}"
+        print(msg.format(jobname), file=sys.stderr)
         return submit_job(jobname, slurm_extra_header, env, code)
 
 class SlurmSingularityBackend(SlurmBackend):
     support_symlinks = False
     TF_TYPE = "Docker"
-    #SINGULARITY_DIR = "/scratch/software/singularity/images" # TODO: read from config file
-    SINGULARITY_DIR = "/tmp/images" # TODO: read from config file
-    SINGULARITY_EXEC = "singularity exec" # TODO: read from config file
 
     def get_code(self, transformation, prepared_transformation):
         return prepared_transformation["docker_command"][1]
@@ -235,9 +237,14 @@ class SlurmSingularityBackend(SlurmBackend):
         with open("CODE.bash", "w") as f:
             f.write(code + "\n")
         os.chmod("CODE.bash", 0o755)
-        singularity_command = "{} {}/{}.simg ./CODE.bash".format(
-            self.SINGULARITY_EXEC,
-            self.SINGULARITY_DIR,
+        simg = "{}/{}.simg".format(
+            self.SINGULARITY_IMAGE_DIR,
             docker_image
         )
+        singularity_command = "{} {} ./CODE.bash".format(
+            self.SINGULARITY_EXEC,
+            simg
+        )
+        msg = "Submit slurm singularity job {}, image {}"
+        print(msg.format(jobname, simg), file=sys.stderr)
         return submit_job(jobname, slurm_extra_header, env, singularity_command)

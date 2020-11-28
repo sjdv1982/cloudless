@@ -10,12 +10,12 @@ set -u -e
 
 
 name=$1
-redis_host=$2
+database_host=$2
 shift 2
 docker run --rm \
   --detach \
   --name $name \
-  -e "REDIS_HOST="$redis_host \
+  -e "SEAMLESS_DATABASE_HOST="$database_host \
   -e SEAMLESS_COMMUNION_OUTGOING_ADDRESS=0.0.0.0 \
   --expose 8602 \
   -P \

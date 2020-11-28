@@ -57,7 +57,7 @@ class FileTransformerPluginBase(TransformerPlugin):
         return code_checksum in self.TRANSFORMER_CODE_CHECKSUMS
 
     def prepare_transformation(self, checksum, transformation):
-        tdict = {}
+        tdict = {"__checksum__": checksum.hex()}
         for pin in transformation:
             if pin in ("__output__", "code"):
                 continue
@@ -182,6 +182,8 @@ def is_binary(data):
 
 def write_files(prepared_transformation, env, support_symlinks):
     for pin in prepared_transformation:
+        if pin == "__checksum__":
+            continue
         filename, value, env_value = prepared_transformation[pin]
         pinfile = "./" + pin
         if filename is not None:
