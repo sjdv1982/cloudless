@@ -348,7 +348,9 @@ First, run `init.sh`.
 It is assumed that you can forward ports to the browser, either by manual SSH tunneling or using VSCode.
 If not, you may want to go to section E first.
 
-## Basic fat graph serving (no jobslaves), with host networking:
+## Command-line test
+
+### Basic fat graph serving (no jobslaves), with host networking:
 
 Open three terminals on the master. In the first terminal, do the following:
 
@@ -372,7 +374,7 @@ This should print "Status: 200"
 
 Forward the port 3124 (Cloudless port)
 
-Then, in the browser, open: http://localhost:3124/admin/instance_page
+Then, in the browser, open: http://localhost:3124/admin
 
 Click "Go to instance", or open http://localhost:3124/instance/TEST-INSTANCE/ctx/index.html
 
@@ -380,7 +382,7 @@ Again, this should reveal the web form of the test service.
 
 To terminate, do Ctrl-D in the first terminal, Ctrl-C in the second.
 
-## Basic fat graph serving (no jobslaves), with normal networking (bridge network):
+### Basic fat graph serving (no jobslaves), with normal networking (bridge network):
   ```bash
   cd $CLOUDLESSDIR/graphs
   ../docker/test-commands/fat TEST-FAT testgraph.seamless
@@ -396,29 +398,17 @@ To terminate, do Ctrl-D in the first terminal, Ctrl-C in the second.
     `./connect-instance http://localhost:3124 TEST-INSTANCE --update_port $update_port --rest_port $rest_port`
    This should print "Status: 200"
    => port-forward 3124 (Cloudless port)
-   => open http://localhost:3124/admin/instance_page
+   => open http://localhost:3124/admin
    => Click "Go to instance" or open http://localhost:3124/instance/TEST-INSTANCE/ctx/index.html
   - Ctrl-D in the first terminal, Ctrl-C in the second.
 
   ...
 
-## Basic fat graph serving (no jobslaves), launching graph instances from Cloudless:
-...
+### Thin graph serving (with local jobslaves)
+See test.sh, test-while-running-local.sh, test-while-running-local2.sh.
 
-
-## Thin graph serving (with local jobslaves)
-... (see test.sh, test-while-running-local.sh, test-while-running-local2.sh)
-
-## Thin graph serving (with local jobslaves), launching graph instances from Cloudless:
-... (same as for fat, but can monitor docker logs)
-
-## Thin graph serving (with remote jobslaves)
-... TODO!!
-export CLOUDLESS_NODES,...
-
-## Thin graph serving (with remote jobslaves), launching graph instances from Cloudless:
-... (same as for fat, but can monitor docker logs on remote machine)
-
+## Browser tests
+See http://localhost:3124, http://localhost:3124/admin/
 
 # E. Web proxying
 

@@ -70,6 +70,7 @@ class SlurmBackend(Backend):
             coro = await_job(jobname, jobid, code, self.TF_TYPE, tempdir, self.STATUS_POLLING_INTERVAL, "RESULT")
             self.jobs.add(jobid)
 
+        coro = asyncio.ensure_future(coro)
         self.coros[checksum] = coro
         return coro, jobid
 
@@ -88,7 +89,8 @@ class SlurmBackend(Backend):
             traceback.print_exc()
         if checksum in self.coros:
             coro = self.coros.pop(checksum)
-            coro.cancel()
+            task = asyncio.ensure_future(coro)
+            task.cancel()
 
 
 from .shell_backend import read_data, parse_resultfile

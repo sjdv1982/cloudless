@@ -119,14 +119,15 @@ class ShellBackend(Backend):
                 self.coros.pop(checksum, None)
 
         coro = asyncio.get_event_loop().run_in_executor(self.executor, func2)
-        self.coros[checksum] = coro
+        self.coros[checksum] = asyncio.ensure_future(coro)
         return coro, None
 
 
     def cancel_job(self, checksum, identifier):
         if checksum in self.coros:
             coro = self.coros.pop(checksum)
-            coro.cancel()
+            task = asyncio.ensure_future(coro)
+            task.cancel()
 
 
 

@@ -24,11 +24,36 @@ if len(sys.argv) > 2:
 rest_server = "http://localhost"
 update_server = "http://localhost" # still http, not ws!
 
-services = {}
-for f in glob.glob("../graphs/*.seamless"):
-    service_dir, service_file = os.path.split(f)
-    service_name = os.path.splitext(service_file)[0]
-    services[service_name] = service_dir, service_file
+def _load_services():
+    global services
+    services = {}
+    for f in glob.glob("../graphs/*.seamless"):
+        service_dir, service_file = os.path.split(f)
+        service_name = os.path.splitext(service_file)[0]
+        if service_name == "status-visualization":
+            continue
+        services[service_name] = service_dir, service_file
+
+_load_services()
+
+async def load_services(req):
+    data = await req.post()
+    try:
+        _load_services()
+    except Exception:
+        exc = traceback.format_exc()
+        return web.Response(
+            status=500,
+            text=exc
+        )
+    else:
+        return web.Response(status=200)
+
+async def browser_load_services(req):
+    response = await load_services(req)
+    if response.status == 200:
+        raise web.HTTPFound('/admin/overview',text="Services reloaded")
+    return response
 
 class Instance:
     container = None
@@ -199,6 +224,7 @@ def launch(service_name, with_status=False):
             raise LaunchError("Seamless shareserver REST port was not bound")
         inst = Instance(update_port, rest_port)
         inst.container = container
+        inst.service_dir = os.path.abspath(service_dir)
         inst.service_name = service_name
         inst.with_status = with_status
         inst.container_logger = container_logger
@@ -265,7 +291,9 @@ async def browser_launch_instance(req):
 
 def stop_container(inst):
     container = inst.container
+    cwd = os.getcwd()
     if container is not None:
+        os.chdir(inst.service_dir)
         subprocess.getstatusoutput("docker kill --signal=SIGINT {}".format(container))
         subprocess.getstatusoutput("docker inspect {0} && docker kill --signal=SIGHUP {0}".format(container))
         subprocess.getstatusoutput("docker inspect {0} && docker stop {0}".format(container))
@@ -274,6 +302,7 @@ def stop_container(inst):
         except:
             traceback.print_exc()
         os.system("rm -f ../instances/{0}.log".format(container))
+        os.chdir(cwd)
 
 
 async def kill_instance(req):
@@ -300,10 +329,10 @@ async def kill_instance(req):
 async def browser_kill_instance(req):
     response = await kill_instance(req)
     if response.status == 200:
-        raise web.HTTPFound('/admin/instance_page',body="Job was successfully killed")
+        raise web.HTTPFound('/admin/overview',text="Job was successfully killed")
     return response
 
-async def instance_page(req):
+async def admin_overview(req):
     txt = """
 <!DOCTYPE html>
 <html lang="en" >
@@ -313,6 +342,17 @@ async def instance_page(req):
 </head>
 <body>
     <h1>RPBS Seamless server</h1>
+
+    <h1>List of services</h1>
+    <table>
+    <tr><th>Service</th><th></th></tr>
+    {}
+    </table>
+    <br>
+    <form action="./load_services" method="post">
+        <input type="submit" value="Reload service list">
+    </form>
+    <br>
     <h1>List of instances</h1>
     <table>
     <tr><th>Instance</th><th>Service</th><th></th><th></th><th></th></tr>
@@ -321,11 +361,32 @@ async def instance_page(req):
 </body>
 </html>
     """
+
+    launch_form = """<form action="../launch" method="post">
+  <input type="hidden" name="service" value="{}">
+  <input type="submit" value="Launch instance">
+</form>"""
+
+    launch_form2 = """<form action="../launch" method="post">
+  <input type="hidden" name="service" value="{}">
+  <input type="hidden" name="with_status" value="1">
+  <input type="submit" value="Launch with status monitor">
+</form>"""
+
+    service_txt = ""
+    for service_name in services:
+        cform = launch_form.format(service_name)
+        cform2 = launch_form2.format(service_name)
+        s = "<tr><th>{}</th><th>{}</th><th>{}</th></tr>".format(
+            service_name, cform, cform2
+        )
+        service_txt += "    " + s + "\n"
+
     kill_form = """<form action="./kill" method="post">
   <input type="hidden" name="instance" value="{}">
   <input type="submit" value="{}">
 </form>"""
-    service_txt = ""
+    instance_txt = ""
     for instance in instances:
         inst =  instances[instance]
         container, service_name, with_status = \
@@ -341,14 +402,14 @@ async def instance_page(req):
         s = "<tr><th>{}</th><th>{}</th><th>{}</th><th>{}</th><th>{}</th></tr>".format(
             instance, service_name, cgo_link, cstatus_link, ckill_form
         )
-        service_txt += "    " + s + "\n"
+        instance_txt += "    " + s + "\n"
     return web.Response(
         status=200,
-        body=txt.format(service_txt),
+        body=txt.format(service_txt, instance_txt),
         content_type='text/html'
     )
 async def admin_redirect(req):
-    raise web.HTTPFound('/admin/instance_page')
+    raise web.HTTPFound('/admin/overview')
 
 async def main_page(req):
     txt = """
@@ -411,25 +472,19 @@ if __name__ == "__main__":
     app.router.add_route('POST','/launch_instance', launch_instance)
     app.router.add_route('POST','/launch', browser_launch_instance)
     app.router.add_route('GET','/admin', admin_redirect)
-    app.router.add_route('GET','/admin/instance_page', instance_page)
+    app.router.add_route('GET','/admin/overview', admin_overview)
     app.router.add_route('POST','/admin/kill_instance', kill_instance)
+    app.router.add_route('POST','/admin/load_services', browser_load_services)
     app.router.add_route('POST','/admin/kill', browser_kill_instance)
     app.router.add_route('PUT','/connect_to_cloudless', connect_to_cloudless)
     app.router.add_route('GET','/connect_from_cloudless', connect_from_cloudless)
 
     async def on_shutdown(app):
-        container_loggers = []
+        print("Shutting down...")
         for inst in instances.values():
             try:
                 stop_container(inst)
             except:
                 traceback.print_exc()
-        os.chdir(service_dir)
-        for container_logger in container_loggers:
-            try:
-                container_logger.communicate(timeout=5)
-            except:
-                traceback.print_exc()
-            os.system("rm -f ../instances/{0}.log".format(container))
     app.on_shutdown.append(on_shutdown)
     web.run_app(app,port=cloudless_port)
