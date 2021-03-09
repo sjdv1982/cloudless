@@ -128,6 +128,4 @@ class DatabaseClient:
             raise Exception((response.status_code, response.text))
         return response
 
-import json
-def serialize(request):
-    return json.dumps(request)
+from silk.mixed.io.serialization import serialize

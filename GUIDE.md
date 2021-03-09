@@ -8,6 +8,8 @@
 
 - Install Cloudless requirements with `pip install -r requirements.txt`.
 
+- Install silk (`conda install -c rpbs silk`, or from https://github.com/sjdv1982/silk)
+
 - Define $CLOUDLESSDIR in your .bashrc
 
 ## Setup of the database adapter

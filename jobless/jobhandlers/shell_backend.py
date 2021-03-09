@@ -389,7 +389,7 @@ def parse_resultfile(resultfile):
         for member in tar.getnames():
             data = tar.extractfile(member).read()
             result[member] = data.decode()
-        return json.dumps(result).encode()
+        return serialize(result)
     except (ValueError, tarfile.CompressionError, tarfile.ReadError):
         with open(resultfile, "rb") as f:
             resultdata = f.read()
