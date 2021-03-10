@@ -134,22 +134,16 @@ class ShellBackend(Backend):
 def read_data(data):
     try:
         npdata = BytesIO(data)
-        np.load(npdata)
-        return data
+        return np.load(npdata)
     except (ValueError, OSError):
         try:
             try:
                 sdata = data.decode()
             except Exception:
-                arr = np.frombuffer(data, dtype=np.uint8)
-                return arr.tobytes()
-            try:
-                result = json.loads(sdata)
-            except:
-                result = sdata
-            return (json.dumps(result) + "\n").encode()
+                return np.frombuffer(data, dtype=np.uint8)
+            return json.loads(sdata)
         except ValueError:
-            return data
+            return sdata
 
 def execute_local(bashcode, env, resultfile):
     global PROCESS
@@ -388,13 +382,12 @@ def parse_resultfile(resultfile):
         result = {}
         for member in tar.getnames():
             data = tar.extractfile(member).read()
-            result[member] = data.decode()
-        return serialize(result)
+            result[member] = read_data(data)
     except (ValueError, tarfile.CompressionError, tarfile.ReadError):
         with open(resultfile, "rb") as f:
             resultdata = f.read()
         result = read_data(resultdata)
-    return result
+    return serialize(result)
 
 
 ####################################################################################
@@ -435,3 +428,5 @@ class ShellDockerBackend(ShellBackend):
             return execute_docker(docker_command, docker_image, tempdir, env, resultfile)
         except SeamlessTransformationError as exc:
             raise exc from None
+
+from silk.mixed.io.serialization import serialize

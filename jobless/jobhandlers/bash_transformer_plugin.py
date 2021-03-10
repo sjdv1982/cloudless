@@ -14,4 +14,4 @@ class BashTransformerPlugin(FileTransformerPluginBase):
         if pin == "pins_":
             return True, False, None, None   # skip
         else:
-            return False, True, False, False  # no skip, value-only, no JSON, no write-env
+            return False, True, False, False  # no skip, json-value-only, no JSON, no write-env

@@ -1,7 +1,9 @@
 """ Plugin for file-based transformers (bash and Docker transformers)
-NOTE: there are some semantic differences with executor.py of bash- and docker-transformers
- because we are dealing with buffers (potentially already in a file)
- and executor.py deals with deserialized values (from Seamless pins)
+NOTE: there are some semantic differences with executor.py of the bash- and docker-transformers
+ for local job execution as implemented by Seamless itself.
+ This is because in Jobless, we are dealing with buffers (potentially already in a file)
+ and local job execution in Seamless deals with deserialized values (from Seamless pins)
+
 Probably keep the current code as the proper semantics, and adapt Seamless pin implementation
    (to provide buffers instead of values if so specified)
 """
@@ -23,11 +25,13 @@ class FileTransformerPluginBase(TransformerPlugin):
     TRANSFORMER_CODE_CHECKSUMS = []  # to be defined in subclass
 
     def required_pin_handler(self, pin, transformation):
-        """return tuple (skip, value_only, json_buffer, write_env)
+        """Obtain the value of required pins (such as bashcode, docker_image, etc.)
         To be re-implemented by the subclass
 
+        return tuple (skip, json_value_only, json_buffer, write_env)
+
         skip: if True, skip the pin altogether
-        value_only:  if True, the buffer must be interpreted as JSON,
+        json_value_only:  if True, the buffer must be interpreted as JSON,
                      and does not need to be written to file
         json_buffer: if True, the buffer must be interpreted as JSON,
                       then written to a new file.
@@ -62,11 +66,11 @@ class FileTransformerPluginBase(TransformerPlugin):
             if pin in ("__output__", "code"):
                 continue
             celltype, subcelltype, pin_checksum = transformation[pin]
-            value_only = False
+            json_value_only = False
             skip, json_buffer, write_env  = None, None, None
 
             if pin in self.REQUIRED_TRANSFORMER_PINS:
-                skip, value_only, json_buffer, write_env = self.required_pin_handler(pin, transformation)
+                skip, json_value_only, json_buffer, write_env = self.required_pin_handler(pin, transformation)
             elif celltype == "mixed":
                 skip = False
                 json_buffer = None
@@ -94,7 +98,7 @@ class FileTransformerPluginBase(TransformerPlugin):
                     else:
                         write_env = False
             if (json_buffer is None or json_buffer == True) or \
-              (write_env is None or write_env == True) or value_only:
+              (write_env is None or write_env == True) or json_value_only:
                 pin_buf = self.database_client.get_buffer(pin_checksum)
                 if pin_buf is None:
                     raise CacheMissError
@@ -105,11 +109,8 @@ class FileTransformerPluginBase(TransformerPlugin):
                         write_env = False
                 if json_buffer is None:
                     assert celltype == "mixed"
-                    if is_binary(pin_buf):
-                        json_buffer = False
-                    else:
-                        json_buffer = True
-            if value_only:
+                    json_buffer = is_json(pin_buf)
+            if json_value_only:
                 if celltype in ("plain", "mixed", "int", "float", "bool", "str"):
                     value = json.loads(pin_buf)
                 elif celltype in ("text", "python", "ipython", "cson", "yaml", "checksum"):
@@ -119,10 +120,10 @@ class FileTransformerPluginBase(TransformerPlugin):
             elif json_buffer:
                 if pin_buf[:1] == b'"' and pin_buf[-2:-1] == b'"':
                     value = json.loads(pin_buf)
-                    value_only = True
+                    json_value_only = True
                 elif pin_buf[-1:] != b'\n':
                     value = json.loads(pin_buf)
-                    value_only = True
+                    json_value_only = True
                 else:
                     pass  # we can use the buffer directly
 
@@ -141,7 +142,7 @@ class FileTransformerPluginBase(TransformerPlugin):
                     else:
                         env_value = str(env_value).rstrip("\n")
 
-            if not value_only:
+            if not json_value_only:
                 """
                 ### Disable this for now, for security reasons...
                 filename = self.database_client.get_filename(pin_checksum)
@@ -165,20 +166,18 @@ class FileTransformerPluginBase(TransformerPlugin):
 MAGIC_NUMPY = b"\x93NUMPY"
 MAGIC_SEAMLESS_MIXED = b'\x94SEAMLESS-MIXED'
 
-def is_binary(data):
+def is_json(data):
     """Poor man's version of mixed_deserialize + get_form
 
     Maybe use this in real bash transformers as well?
-    Normally, we don't want mixed-plain or mixed-binary,
-     since command line tools can't read it...
     """
     assert isinstance(data, bytes)
     if data.startswith(MAGIC_NUMPY):
-        return True
-    elif data.startswith(MAGIC_SEAMLESS_MIXED):
-        raise ValueError("mixed binary/plain buffers are not supported")
-    else:
         return False
+    elif data.startswith(MAGIC_SEAMLESS_MIXED):
+        return False
+    else:  # pure json
+        return True
 
 def write_files(prepared_transformation, env, support_symlinks):
     for pin in prepared_transformation:

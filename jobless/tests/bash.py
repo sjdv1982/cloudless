@@ -37,3 +37,19 @@ ctx.compute()
 print(ctx.tf.result.value)
 print(ctx.tf.status)
 print(ctx.tf.exception)
+ctx.code = """
+python3 -c 'import numpy as np; np.save(\"test\",np.arange(12)*3)'
+echo 'hello' > test.txt
+tar hczf RESULT test.npy test.txt
+"""
+ctx.result = ctx.tf
+ctx.result.celltype = "structured"
+ctx.result_npy = ctx.result["test.npy"]
+ctx.result_txt = ctx.result["test.txt"]
+ctx.compute()
+print("")
+print(ctx.result.value)
+print(ctx.result_npy.value)
+print(ctx.result_txt.value)
+print(ctx.tf.status)
+print(ctx.tf.exception)

@@ -93,7 +93,7 @@ class SlurmBackend(Backend):
             task.cancel()
 
 
-from .shell_backend import read_data, parse_resultfile
+from .shell_backend import parse_resultfile
 
 
 def submit_job(jobname, slurm_extra_header, env, code):
