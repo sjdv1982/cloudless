@@ -2,7 +2,8 @@
 
 mkdir -p /tmp/seamless-database
 
-SEAMLESS_IMG=docker://rpbs/seamless  # will always work
+set -u
+#SEAMLESS_IMG=docker://rpbs/seamless  # will only work as sudo
 #SEAMLESS_IMG=/tmp/images/rpbs/seamless.simg  # laptop
 #SEAMLESS_IMG=/scratch/software/singularity/images # RPBS cluster
 

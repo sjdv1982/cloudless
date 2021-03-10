@@ -7,6 +7,12 @@ port: 5533
 ## "null" will generate a random communion_id
 communion_id: jobless
 
+## The Seamless database adapter ("SeamlessDB") can store items in flat files.
+## Flatfile rewriters are necessary when the flatfile directory inside the SeamlessDB container
+##   is mounted under a different name than outside the container (where Cloudless runs)
+## This happens when you run SeamlessDB under Docker.
+## When SeamlessDB is run under Singularity, this should not be necessary
+
 # flatfile_rewriters:
 #   -
 #     mounted: /data/              ## how it is mounted inside the container
