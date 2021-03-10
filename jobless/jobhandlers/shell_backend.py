@@ -12,30 +12,6 @@ from io import BytesIO
 import multiprocessing as mp
 import traceback
 
-########################################
-# From https://stackoverflow.com/questions/19924104/python-multiprocessing-handling-child-errors-in-parent
-
-class Process(mp.Process):
-    def __init__(self, *args, **kwargs):
-        mp.Process.__init__(self, *args, **kwargs)
-        self._pconn, self._cconn = mp.Pipe()
-        self._exception = None
-
-    def run(self):
-        try:
-            mp.Process.run(self)
-            self._cconn.send(None)
-        except Exception as e:
-            tb = traceback.format_exc()
-            self._cconn.send((e, tb))
-
-    @property
-    def exception(self):
-        if self._pconn.poll():
-            self._exception = self._pconn.recv()
-        return self._exception
-
-########################################
 
 PROCESS = None
 def kill_children():
@@ -95,26 +71,31 @@ class ShellBackend(Backend):
                 continue
             prepared_transformation[key] = os.path.abspath(os.path.expanduser(filename)), value, env_value
 
-        queue = mp.Queue()
-
         def func(queue):
-            result = self._run(checksum, transformation, prepared_transformation)
-            queue.put(result)
+            try:
+                result = self._run(checksum, transformation, prepared_transformation)
+                queue.put((False, result))
+            except Exception as exc:
+                tb = traceback.format_exc()
+                queue.put((True, (exc, tb)))
 
         def func2():
             try:
-                p = Process(target=func, args=(queue,))
-                p.start()
-                p.join()
-                if p.exception:
-                    exc, tb = p.exception
-                    if isinstance(exc, SeamlessTransformationError):
-                        raise exc
+                with mp.Manager() as manager:
+                    queue = manager.Queue()
+                    p = mp.Process(target=func, args=(queue,))
+                    p.start()
+                    p.join()
+                    has_error, payload = queue.get()
+                    if has_error:
+                        exc, tb = payload
+                        if isinstance(exc, SeamlessTransformationError):
+                            raise exc
+                        else:
+                            raise JoblessRemoteError(exc, tb)
                     else:
-                        raise JoblessRemoteError(exc, tb)
-                else:
-                    result = queue.get()
-                    return result
+                        result = payload
+                        return result
             finally:
                 self.coros.pop(checksum, None)
 
@@ -196,13 +177,15 @@ Bash transformer exception
 Bash transformer exception
 ==========================
 
+Error: Result file {} does not exist
+
 *************************************************
 * Command
 *************************************************
 {}
 *************************************************
-Error: Result file {} does not exist
-""".format(bashcode, resultfile)
+
+""".format(resultfile, bashcode)
         try:
             stdout = process.stdout.decode()
             if len(stdout):
@@ -289,12 +272,14 @@ def execute_docker(docker_command, docker_image, tempdir, env, resultfile):
 Docker transformer exception
 ============================
 
+Exit code: {}
+
 *************************************************
 * Command
 *************************************************
 {}
 *************************************************
-Exit code: {}
+
 *************************************************
 * Standard output
 *************************************************
@@ -304,7 +289,7 @@ Exit code: {}
 *************************************************
 {}
 *************************************************
-""".format(docker_command, exit_status, stdout, stderr)) from None
+""".format(exit_status, docker_command, stdout, stderr)) from None
         except ConnectionError as exc:
             msg = "Unknown connection error"
             if len(exc.args) == 1:
@@ -326,12 +311,13 @@ Exit code: {}
 Docker transformer exception
 ============================
 
+Error: Result file RESULT does not exist
+
 *************************************************
 * Command
 *************************************************
 {}
 *************************************************
-Error: Result file RESULT does not exist
 """.format(docker_command)
             try:
                 stdout = container.logs(stdout=True, stderr=False)
@@ -364,9 +350,9 @@ Error: Result file RESULT does not exist
             raise SeamlessTransformationError(msg)
         else:
             if len(stdout):
-                print(stdout)
+                print(stdout[:1000])
             if len(stderr):
-                print(stderr, file=sys.stderr)
+                print(stderr[:1000], file=sys.stderr)
         return parse_resultfile(resultfile)
 
     finally:
