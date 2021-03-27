@@ -3,7 +3,7 @@ from aiohttp import web
 import asyncio
 import pprint
 
-async def reverse_proxprox_websocket(ws_proxying, ws_client, connection_id):    
+async def reverse_proxprox_websocket(ws_proxying, ws_client, connection_id):
     from proxy import msg_pack
     #print("PROXPROX")
     async for msg in ws_client:
@@ -30,7 +30,7 @@ async def reverse_proxy_websocket(req, client, update_server, port, tail):
     ws_server = web.WebSocketResponse()
     await ws_server.prepare(req)
     #logger.info('##### WS_SERVER %s' % pprint.pformat(ws_server))
-    
+
     async with client.ws_connect(
         "{}:{}/{}".format(update_server, port, tail),
     ) as ws_client:
@@ -74,7 +74,7 @@ async def reverse_proxy_http(reqdata, client, rest_server, port, tail):
             headers = headers,
             status = res.status,
             body = body
-        )        
+        )
 
 async def reverse_proxy(req, rest_server, update_server, instances):
     reqH = req.headers.copy()
@@ -88,6 +88,27 @@ async def reverse_proxy(req, rest_server, update_server, instances):
         return web.Response(status=404,text="Unknown instance")
 
     inst = instances[instance]
+
+    if not inst.complete:
+        if inst.error:
+            return web.Response(
+                status=500,
+                text="***Launch error***\n\n" + inst.error_message
+            )
+        else:
+            return web.Response(
+                status=202,
+                text="""
+<head>
+  <meta http-equiv="refresh" content="3">
+</head>
+<body>
+Loading...
+</body>
+                """,
+                content_type='text/html'
+            )
+
     update_port = inst.update_port
     rest_port = inst.rest_port
     async with aiohttp.ClientSession(cookies=req.cookies) as client:
@@ -102,6 +123,6 @@ async def reverse_proxy(req, rest_server, update_server, instances):
                 "headers": req.headers.copy(),
                 "query": req.query,
                 "instance" : req.match_info.get('instance'),
-                "data": await req.read()                
+                "data": await req.read()
             }
             return await reverse_proxy_http(reqdata, client, rest_server, rest_port, tail)

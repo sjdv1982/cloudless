@@ -16,9 +16,8 @@
 
   1. You need to setup a database.yaml, see /cloudless/jobless/tests/database-minimal.yaml for an example.
   2. Define a Seamless database startup command.
-     For an example script that uses singularity, see /cloudless/jobless/tests/start-seamless-database. You need to adapt it by defining where it can find the Seamless Singularity image (.simg file).
-     Building the image can be done from the Docker container using `sudo singularity build seamless.simg docker://rpbs/seamless`
-     Alternatively, the Seamless database can be started directly using Docker, by copying and adapt `seamless-database`. Note that within a Docker container, the database files are by default visible as /data. Jobless (see next section) will then require a flatfile adapter to be defined in its .yaml file.
+     For an example script that uses Singularity, see /cloudless/jobless/tests/start-seamless-database. You need to adapt it by defining where it can find the Seamless Singularity image (.simg file). See the Seamless installation instructions on GitHub on how to build a Singularity image for Seamless.
+     Alternatively, the Seamless database can be started directly using Docker, by copying and adapting `seamless-database`. Note that within a Docker container, the database files are by default visible as /data. Jobless (see next section) will then require a flatfile adapter to be defined in its .yaml file.
   3. Start the Seamless database. For the rest of the guide, it is assumed to be always running.
 
 ### How to delete your database
@@ -32,19 +31,19 @@ If your DB has a flatfile backend:
 If your DB has a Redis backend:
     Flush Redis DB: `docker exec redis-container redis-cli flushall`
 
-## Setting up jobless
+## Setting up Jobless
 
-Like Cloudless, jobless runs without containerization.
+Like Cloudless, Jobless runs without containerization.
 Jobless configuration needs to be done in a .yaml file.
-See /cloudless/jobless/tests/local.yaml for a minimal example, where bash transformers and Docker transformers
- are run as jobs locally.
+See /cloudless/jobless/tests/local.yaml for a minimal example, where bash transformers and
+Docker transformers are run as jobs locally.
 Launch jobless with python3 /cloudless/jobless/jobless.py jobless-config.yaml
 
-### Testing jobless
+### Testing Jobless
 
 - Delete the database
 - Make sure that the Docker images "ubuntu", "rpbs/seamless" and "rpbs/autodock" are available
-  as Docker or singularity images in the place where the jobs will be run.
+  as Docker or Singularity images in the place where the jobs will be run.
 - Go to /cloudless/jobless/tests
 - Launch a shell in a Seamless container with `seamless-bash`
 - Run the tests bash.py, docker_.py and autodock.py with python3.
@@ -151,7 +150,7 @@ The first lines should contain `INCOMING` and `ADD SERVANT`
 The last line should be `None`.
 If is instead `Local computation has been disabled for this Seamless instance`, then the test has failed.
 
-Do Ctrl-C in the first terminal.
+Do Ctrl-C in the first terminal. Finally, do `docker rm jobslave-container`.
 
 ## Master-to-node and node-to-master communication tests
 
@@ -298,9 +297,9 @@ This test is only necessary if:
         ```
 
 The first lines should contain `INCOMING` and `ADD SERVANT`
-
 The last line should be `None`.
 If is instead `Local computation has been disabled for this Seamless instance`, then the test has failed.
+On the node, in the first terminal, do Ctrl-C. Finally, do `docker rm jobslave-container`.
 
 - After the testing, delete the DB
 
@@ -316,10 +315,10 @@ If is instead `Local computation has been disabled for this Seamless instance`, 
 Then, do:
 ```bash
 cd $DIR
-$CLOUDLESSDIR/docker/commands/cloudless-add-zip service.zip
+seamless-add-zip service.zip
 cp service.seamless $CLOUDLESSDIR/graphs
 ```
-(A future version of Cloudless will support dynamic deployment/re-deployment)
+Services can be reloaded dynamically in the Seamless admin page.
 
 - Start Cloudless with one of the ./start-cloudless*.sh scripts. The three basic options are "fat", "local" and "remote".
 

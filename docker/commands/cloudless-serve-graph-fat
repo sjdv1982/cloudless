@@ -19,7 +19,7 @@ print(bridge[0]["IPAM"]["Config"][0]["Gateway"])
 name=$1
 f=$2
 shift 2
-c=$(docker run --rm \
+c=$(docker run \
   --detach \
   --name $name \
   -e "SEAMLESS_DATABASE_HOST="$SEAMLESS_DATABASE_HOST \

@@ -19,7 +19,7 @@ print(bridge[0]["IPAM"]["Config"][0]["Gateway"])
 ''')
 
 name=$1
-docker run --rm \
+docker run \
   --detach \
   --name $name \
   -v $seamlessdir:/seamless \

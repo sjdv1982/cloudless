@@ -7,6 +7,7 @@ import traceback
 import random
 import subprocess
 import time
+import threading
 
 import proxy as proxy_module
 import reverse_proxy as reverse_proxy_module
@@ -24,15 +25,20 @@ if len(sys.argv) > 2:
 rest_server = "http://localhost"
 update_server = "http://localhost" # still http, not ws!
 
+launch_threads = []
+
 def _load_services():
     global services
     services = {}
     for f in glob.glob("../graphs/*.seamless"):
+        if f.endswith("-status.seamless"):
+            continue
         service_dir, service_file = os.path.split(f)
         service_name = os.path.splitext(service_file)[0]
-        if service_name == "status-visualization":
-            continue
-        services[service_name] = service_dir, service_file
+        service_status_file = service_name + "-status.seamless"
+        if not os.path.exists(os.path.join(service_dir, service_status_file)):
+            service_status_file = "DEFAULT-status.seamless"
+        services[service_name] = service_dir, service_file, service_status_file
 
 _load_services()
 
@@ -56,19 +62,34 @@ async def browser_load_services(req):
     return response
 
 class Instance:
+    complete = True
     container = None
     service_name = None
-    with_status = False
     proxy_websocket = None
 
     def __init__(self, update_port, rest_port):
         self.update_port = update_port
         self.rest_port = rest_port
 
+
+class IncompleteInstance:
+    """Class to describe instances that are launching, or where launch failed"""
+    complete = False
+    error = False
+    error_message = None
+
 instances = {
     #1: Instance(32876, 32875)
 }
 proxies = {}
+
+def get_new_instance():
+    """Returns a new unused random instance ID"""
+    while 1:
+        instance = random.choice(range(1000000, 10000000))
+        if instance not in instances:
+            break
+    return instance
 
 
 async def connect_instance(req):
@@ -104,7 +125,6 @@ async def connect_instance(req):
             text="Need to specify integer rest_port"
         )
 
-    with_status = query.get("with_status", False)
     service_name = query.get("service_name", None)
     if instance in instances:
         inst = instances[instance]
@@ -117,7 +137,6 @@ async def connect_instance(req):
 
     inst = Instance(update_port, rest_port)
     inst.service_name = service_name
-    inst.with_status = with_status
     instances[instance] = inst
     return web.Response(status=200)
 
@@ -174,33 +193,51 @@ async def connect_from_cloudless(req):
             text="connect_from_cloudless requires websocket protocol"
         )
 
-class LaunchError(Exception):
-    pass
+def launch(instance, service_name):
 
-def launch(service_name, with_status=False):
-    while 1:
-        instance = random.choice(range(1000000, 10000000))
-        container = "cloudless-{}".format(instance)
-        if instance not in instances:
-            break
-    service_dir, service_file = services[service_name]
+    ininst = IncompleteInstance()
+    instances[instance] = ininst
+
+    service_dir, service_file, service_status_file = services[service_name]
     cwd = os.getcwd()
     launch_command = os.path.abspath("../docker/commands/{}".format(serve_graph_command))
+    container = "cloudless-{}".format(instance)
     try:
         os.chdir(service_dir)
-        cmd = "{} {} {}".format(launch_command, container, service_file)
-        if with_status:
-            d = "status-visualization"
-            cmd += " --status-graph {0}.seamless".format(d)
+        cmd = "{} {} {} --status-graph {}".format(launch_command, container, service_file, service_status_file)
         err, output = subprocess.getstatusoutput(cmd)
         if err:
-            raise LaunchError("Launch output:\n{}\n{}".format(err, output))
+            msg = "Launch output:\n{}\n{}".format(err, output)
+            ininst.error = True
+            ininst.error_message = msg
+            return
         else:
-            cmd = "docker attach {0} > ../instances/{0}.log 2>&1"
+            logfile = "../instances/{0}.log".format(container)
+            cmd = "docker attach {0} > {1} 2>&1"
             container_logger = subprocess.Popen(
-                cmd.format(container),
+                cmd.format(container, logfile),
                 shell=True
             )
+            try:
+                container_logger.communicate(timeout=2)
+            except subprocess.TimeoutExpired:
+                pass
+            if container_logger.returncode is not None:
+                output = output.strip()
+                if len(output):
+                    output = "***Docker launch output***\n" + output + "\n\n"
+                if os.path.exists(logfile):
+                    output += "***Container logfile***\n"
+                    logcontent = open(logfile).read().strip()
+                    if logcontent == "You cannot attach to a stopped container, start it first":
+                        err2, logcontent2 = subprocess.getstatusoutput("docker logs {0}".format(container))
+                        if err2 == 0:
+                            logcontent = logcontent2
+                    output += logcontent + "\n"
+                subprocess.getstatusoutput("docker rm {0}".format(container))
+                ininst.error = True
+                ininst.error_message = output
+                return
         update_port, rest_port = None, None
         for l in output.splitlines():
             fields = l.split("->")
@@ -219,14 +256,19 @@ def launch(service_name, with_status=False):
             elif container_port == "5813/tcp":
                 rest_port = host_port
         if update_port is None:
-            raise LaunchError("Seamless shareserver websocket update port was not bound")
+            msg = "Seamless shareserver websocket update port was not bound"
+            ininst.error = True
+            ininst.error_message = msg
+            return
         if rest_port is None:
-            raise LaunchError("Seamless shareserver REST port was not bound")
+            msg = "Seamless shareserver REST port was not bound"
+            ininst.error = True
+            ininst.error_message = msg
+            return
         inst = Instance(update_port, rest_port)
         inst.container = container
         inst.service_dir = os.path.abspath(service_dir)
         inst.service_name = service_name
-        inst.with_status = with_status
         inst.container_logger = container_logger
         instances[instance] = inst
     finally:
@@ -237,9 +279,6 @@ def launch(service_name, with_status=False):
 async def launch_instance(req):
     data = await req.post()
     service = data.get("service", None)
-    with_status = data.get("with_status", None)
-    if with_status == "1":
-        with_status = True
     if service is None:
         return web.Response(
             status=400,
@@ -250,13 +289,14 @@ async def launch_instance(req):
             status=409,
             text="Unknown service"
         )
+
     try:
-        instance = launch(service, with_status)
-    except LaunchError as exc:
-        return web.Response(
-            status=500,
-            text=exc.args[0]
-        )
+        launch_threads[:] = [t for t in launch_threads if t.is_alive()]
+        instance = get_new_instance()
+        t = threading.Thread(target=launch, args=(instance, service))
+        t.name = instance
+        launch_threads.append(t)
+        t.start()
     except Exception:
         exc = traceback.format_exc()
         return web.Response(
@@ -269,22 +309,6 @@ async def launch_instance(req):
 async def browser_launch_instance(req):
     result = await launch_instance(req)
     if isinstance(result, int):   # instance
-        rest_port = instances[result].rest_port
-        t = time.time()
-        while 1:
-            try:
-                async with aiohttp.ClientSession(cookies=req.cookies) as client:
-                    async with client.get(
-                        "{}:{}/".format(rest_server, rest_port)
-                    ) as response:
-                        if response.status < 400:
-                            await asyncio.sleep(2)
-                            break
-                        if time.time() - t > 10:
-                            break
-            except aiohttp.client_exceptions.ClientError:
-                pass
-            await asyncio.sleep(0.5)
         raise web.HTTPFound('/instance/{}/'.format(result))
     else:
         return result
@@ -294,9 +318,9 @@ def stop_container(inst):
     cwd = os.getcwd()
     if container is not None:
         os.chdir(inst.service_dir)
-        subprocess.getstatusoutput("docker kill --signal=SIGINT {}".format(container))
-        subprocess.getstatusoutput("docker inspect {0} && docker kill --signal=SIGHUP {0}".format(container))
-        subprocess.getstatusoutput("docker inspect {0} && docker stop {0}".format(container))
+        subprocess.getstatusoutput("docker kill --signal=SIGINT {0} && docker rm {0}".format(container))
+        subprocess.getstatusoutput("docker inspect {0} && docker kill --signal=SIGHUP {0} && docker rm {0}".format(container))
+        subprocess.getstatusoutput("docker inspect {0} && docker stop {0} && docker rm {0}".format(container))
         try:
             inst.container_logger.communicate(timeout=5)
         except:
@@ -367,18 +391,11 @@ async def admin_overview(req):
   <input type="submit" value="Launch instance">
 </form>"""
 
-    launch_form2 = """<form action="../launch" method="post">
-  <input type="hidden" name="service" value="{}">
-  <input type="hidden" name="with_status" value="1">
-  <input type="submit" value="Launch with status monitor">
-</form>"""
-
     service_txt = ""
     for service_name in services:
         cform = launch_form.format(service_name)
-        cform2 = launch_form2.format(service_name)
-        s = "<tr><th>{}</th><th>{}</th><th>{}</th></tr>".format(
-            service_name, cform, cform2
+        s = "<tr><th>{}</th><th>{}</th></tr>".format(
+            service_name, cform
         )
         service_txt += "    " + s + "\n"
 
@@ -389,14 +406,12 @@ async def admin_overview(req):
     instance_txt = ""
     for instance in instances:
         inst =  instances[instance]
-        container, service_name, with_status = \
-          inst.container, inst.service_name, inst.with_status
+        container, service_name = \
+          inst.container, inst.service_name
         go_link="../instance/{}/".format(instance)
         cgo_link = "<a href='{}'>Go to instance</a>".format(go_link)
-        cstatus_link = ""
-        if with_status:
-            status_link="../instance/{}/status/".format(instance)
-            cstatus_link = "<a href='{}'>Go to status</a>".format(status_link)
+        status_link="../instance/{}/status/".format(instance)
+        cstatus_link = "<a href='{}'>Go to status</a>".format(status_link)
         msg = "Kill instance" if container else "Disconnect from instance"
         ckill_form = kill_form.format(instance, msg)
         s = "<tr><th>{}</th><th>{}</th><th>{}</th><th>{}</th><th>{}</th></tr>".format(
@@ -433,18 +448,12 @@ async def main_page(req):
   <input type="hidden" name="service" value="{}">
   <input type="submit" value="Launch instance">
 </form>"""
-    form2 = """<form action="./launch" method="post">
-  <input type="hidden" name="service" value="{}">
-  <input type="hidden" name="with_status" value="1">
-  <input type="submit" value="Launch with status monitor">
-</form>"""
 
     service_txt = ""
     for service_name in services:
         cform = form.format(service_name)
-        cform2 = form2.format(service_name)
-        s = "<tr><th>{}</th><th>{}</th><th>{}</th></tr>".format(
-            service_name, cform, cform2
+        s = "<tr><th>{}</th><th>{}</th></tr>".format(
+            service_name, cform
         )
         service_txt += "    " + s + "\n"
     return web.Response(
@@ -481,7 +490,14 @@ if __name__ == "__main__":
 
     async def on_shutdown(app):
         print("Shutting down...")
-        for inst in instances.values():
+        for t in launch_threads:
+            if t.is_alive():
+                print("Awaiting launch thread", t.name)
+            t.join(timeout=20)
+        for instance, inst in instances.items():
+            if not inst.complete:
+                continue
+            print("Killing instance", instance)
             try:
                 stop_container(inst)
             except:

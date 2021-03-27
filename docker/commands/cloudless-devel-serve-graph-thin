@@ -20,7 +20,7 @@ name=$1
 f=$2
 shift 2
 communion_incoming=${SEAMLESS_COMMUNION_INCOMING}
-c=$(docker run --rm \
+c=$(docker run \
   --detach \
   --name $name \
   -v $seamlessdir:/seamless \
