@@ -96,11 +96,13 @@ class SlurmBackend(Backend):
 from .shell_backend import parse_resultfile
 
 
-def submit_job(jobname, slurm_extra_header, env, code):
+def submit_job(jobname, slurm_extra_header, env, code, *, use_host_environment):
+    export = "ALL" if use_host_environment else "NONE"
     slurmheader = """#!/bin/bash
 #SBATCH -o {}.out
 #SBATCH -e {}.err
-#SBATCH --export=ALL
+#SBATCH --export={}
+#SBATCH --export-file=.slurm-env
 """.format(jobname, jobname)
     code2 = slurmheader
     if slurm_extra_header is not None:
@@ -110,13 +112,16 @@ def submit_job(jobname, slurm_extra_header, env, code):
         f.write(code2)
     os.chmod("SLURMFILE", 0o755)
     cmd = "sbatch -J {} SLURMFILE".format(jobname)
-    env2 = os.environ.copy()
-    env2.update(env)
-
+    env_bytes = b''
+    for env_var, env_value in env.items():
+        env_txt = "{}={}".format(env_var, env_value)
+        env_bytes += env_txt.encode() + b'\x00'
+    with open(".slurm-env", "wb") as f:
+        f.write(env_bytes)
     # This is ridiculous... Even with an error message such as "sbatch: error: No PATH environment variable", the error code is 0!!
-    ### result = subprocess.check_output(cmd, shell=True, env=env2)
+    ### result = subprocess.check_output(cmd, shell=True)
     # Let's try to fix that...
-    process = subprocess.run(cmd, shell=True, env=env2, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    process = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     result = process.stdout
     if len(process.stderr.strip()):
         if len(result):
@@ -219,17 +224,23 @@ async def await_job(jobname, identifier, code, tftype, tempdir, polling_interval
 class SlurmBashBackend(SlurmBackend):
     support_symlinks = True
     TF_TYPE = "Bash"
+    USE_HOST_ENVIRONMENT = True
+
     def get_code(self, transformation, prepared_transformation):
         return prepared_transformation["bashcode"][1]
 
     def submit_job(self, jobname, slurm_extra_header, env, code, prepared_transformation):
         msg = "Submit slurm bash job {}"
         print(msg.format(jobname), file=sys.stderr)
-        return submit_job(jobname, slurm_extra_header, env, code)
+        return submit_job(
+            jobname, slurm_extra_header, env, code,
+            use_host_environment=self.USE_HOST_ENVIRONMENT
+        )
 
 class SlurmSingularityBackend(SlurmBackend):
     support_symlinks = False
     TF_TYPE = "Docker"
+    USE_HOST_ENVIRONMENT = False
 
     def get_code(self, transformation, prepared_transformation):
         return prepared_transformation["docker_command"][1]
@@ -249,4 +260,7 @@ class SlurmSingularityBackend(SlurmBackend):
         )
         msg = "Submit slurm singularity job {}, image {}"
         print(msg.format(jobname, simg), file=sys.stderr)
-        return submit_job(jobname, slurm_extra_header, env, singularity_command)
+        return submit_job(
+            jobname, slurm_extra_header, env, singularity_command,
+            use_host_environment=self.USE_HOST_ENVIRONMENT
+        )
