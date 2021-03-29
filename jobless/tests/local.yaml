@@ -58,7 +58,7 @@ jobhandlers:
   ## only for sub_backend=singularity
   ## where are the images stored.
   ## e.g. Docker image 'rpbs/seamless'
-  ##  must correspond to image file $singularity_image_dir/rpbs/seamless.img
+  ##  must correspond to image file $singularity_image_dir/rpbs/seamless.simg
 
   # singularity_image_dir: /mnt/singularity
 

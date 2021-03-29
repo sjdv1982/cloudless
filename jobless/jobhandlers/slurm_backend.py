@@ -98,12 +98,12 @@ from .shell_backend import parse_resultfile
 
 def submit_job(jobname, slurm_extra_header, env, code, *, use_host_environment):
     export = "ALL" if use_host_environment else "NONE"
+    env_names = ",".join(sorted(env.keys()))
     slurmheader = """#!/bin/bash
 #SBATCH -o {}.out
 #SBATCH -e {}.err
-#SBATCH --export={}
-#SBATCH --export-file=.slurm-env
-""".format(jobname, jobname)
+#SBATCH --export={},{}
+""".format(jobname, jobname, export, env_names)
     code2 = slurmheader
     if slurm_extra_header is not None:
         code2 += slurm_extra_header + "\n"
@@ -112,16 +112,13 @@ def submit_job(jobname, slurm_extra_header, env, code, *, use_host_environment):
         f.write(code2)
     os.chmod("SLURMFILE", 0o755)
     cmd = "sbatch -J {} SLURMFILE".format(jobname)
-    env_bytes = b''
-    for env_var, env_value in env.items():
-        env_txt = "{}={}".format(env_var, env_value)
-        env_bytes += env_txt.encode() + b'\x00'
-    with open(".slurm-env", "wb") as f:
-        f.write(env_bytes)
+    env2 = os.environ.copy()
+    env2.update(env)
+
     # This is ridiculous... Even with an error message such as "sbatch: error: No PATH environment variable", the error code is 0!!
-    ### result = subprocess.check_output(cmd, shell=True)
+    ### result = subprocess.check_output(cmd, env=env2, shell=True)
     # Let's try to fix that...
-    process = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    process = subprocess.run(cmd, shell=True, env=env2, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     result = process.stdout
     if len(process.stderr.strip()):
         if len(result):
