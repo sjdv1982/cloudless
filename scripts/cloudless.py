@@ -8,19 +8,22 @@ import random
 import subprocess
 import time
 import threading
+from functools import partial
+import tempfile
+import sys
 
 import proxy as proxy_module
 import reverse_proxy as reverse_proxy_module
-from functools import partial
+import icicle
 
-currdir = os.path.split(os.path.abspath(__file__))[0]
-os.chdir(currdir)
+currdir = os.path.split(os.path.abspath(__file__))[0]  # /scripts
 
 cloudless_port = 3124
-import sys
-serve_graph_command = sys.argv[1]  # e.g. "cloudless-devel-serve-graph-thin"
-if len(sys.argv) > 2:
-    cloudless_port = int(sys.argv[2])
+
+if __name__ == "__main__":
+    serve_graph_command = sys.argv[1]  # e.g. "cloudless-devel-serve-graph-thin"
+    if len(sys.argv) > 2:
+        cloudless_port = int(sys.argv[2])
 
 rest_server = "http://localhost"
 update_server = "http://localhost" # still http, not ws!
@@ -39,8 +42,6 @@ def _load_services():
         if not os.path.exists(os.path.join(service_dir, service_status_file)):
             service_status_file = "DEFAULT-status.seamless"
         services[service_name] = service_dir, service_file, service_status_file
-
-_load_services()
 
 async def load_services(req):
     data = await req.post()
@@ -66,6 +67,7 @@ class Instance:
     container = None
     service_name = None
     proxy_websocket = None
+    temp_dir = None
 
     def __init__(self, update_port, rest_port):
         self.update_port = update_port
@@ -193,90 +195,124 @@ async def connect_from_cloudless(req):
             text="connect_from_cloudless requires websocket protocol"
         )
 
-def launch(instance, service_name):
-
-    ininst = IncompleteInstance()
-    instances[instance] = ininst
-
+def launch(instance, service_name, existing_graph=None):
+    ininst = instances[instance]
     service_dir, service_file, service_status_file = services[service_name]
-    cwd = os.getcwd()
+    service_dir = os.path.abspath(service_dir)
+    temp_dir = tempfile.TemporaryDirectory()
+    if existing_graph is not None:
+        graph = existing_graph
+    else:
+        with open(os.path.join(service_dir, service_file)) as f:
+            graph = f.read()
+    with open(os.path.join(service_dir, service_status_file)) as f:
+        status_graph = f.read()
+    with open(os.path.join(temp_dir.name, "graph.seamless"), "w") as f:
+        f.write(graph)
+    with open(os.path.join(temp_dir.name, "status-graph.seamless"), "w") as f:
+        f.write(status_graph)
     launch_command = os.path.abspath("../docker/commands/{}".format(serve_graph_command))
     container = "cloudless-{}".format(instance)
-    try:
-        os.chdir(service_dir)
-        cmd = "{} {} {} --status-graph {}".format(launch_command, container, service_file, service_status_file)
-        err, output = subprocess.getstatusoutput(cmd)
-        if err:
-            msg = "Launch output:\n{}\n{}".format(err, output)
+    cmd = """
+    cd {} && {} {} graph.seamless --status-graph status-graph.seamless
+    """.format(
+        temp_dir.name,
+        launch_command, container
+    )
+    err, output = subprocess.getstatusoutput(cmd)
+    if err:
+        msg = "Launch output:\n{}\n{}".format(err, output)
+        ininst.error = True
+        ininst.error_message = msg
+        return
+    else:
+        logfile = "../instances/{0}.log".format(container)
+        cmd = "cd {} && docker attach {} > {} 2>&1"
+        container_logger = subprocess.Popen(
+            cmd.format(service_dir, container, logfile),
+            shell=True
+        )
+        try:
+            container_logger.communicate(timeout=2)
+        except subprocess.TimeoutExpired:
+            pass
+        if container_logger.returncode is not None:
+            output = output.strip()
+            if len(output):
+                output = "***Docker launch output***\n" + output + "\n\n"
+            logfile2 = os.path.join(service_dir, logfile)
+            if os.path.exists(logfile2):
+                output += "***Container logfile***\n"
+                logcontent = open(logfile2).read().strip()
+                if logcontent == "You cannot attach to a stopped container, start it first":
+                    err2, logcontent2 = subprocess.getstatusoutput(
+                        "cd {} && docker logs {}".format(service_dir, container)
+                    )
+                    if err2 == 0:
+                        logcontent = logcontent2
+                output += logcontent + "\n"
+            subprocess.getstatusoutput("docker rm {0}".format(container))
             ininst.error = True
-            ininst.error_message = msg
+            ininst.error_message = output
             return
-        else:
-            logfile = "../instances/{0}.log".format(container)
-            cmd = "docker attach {0} > {1} 2>&1"
-            container_logger = subprocess.Popen(
-                cmd.format(container, logfile),
-                shell=True
-            )
-            try:
-                container_logger.communicate(timeout=2)
-            except subprocess.TimeoutExpired:
-                pass
-            if container_logger.returncode is not None:
-                output = output.strip()
-                if len(output):
-                    output = "***Docker launch output***\n" + output + "\n\n"
-                if os.path.exists(logfile):
-                    output += "***Container logfile***\n"
-                    logcontent = open(logfile).read().strip()
-                    if logcontent == "You cannot attach to a stopped container, start it first":
-                        err2, logcontent2 = subprocess.getstatusoutput("docker logs {0}".format(container))
-                        if err2 == 0:
-                            logcontent = logcontent2
-                    output += logcontent + "\n"
-                subprocess.getstatusoutput("docker rm {0}".format(container))
-                ininst.error = True
-                ininst.error_message = output
-                return
-        update_port, rest_port = None, None
-        for l in output.splitlines():
-            fields = l.split("->")
-            if len(fields) != 2:
-                continue
-            container_port = fields[0].strip()
-            ff = fields[1].split(":")
-            if len(ff) != 2:
-                continue
-            try:
-                host_port = int(ff[1])
-            except ValueError:
-                continue
-            if container_port == '5138/tcp':
-                update_port = host_port
-            elif container_port == "5813/tcp":
-                rest_port = host_port
-        if update_port is None:
-            msg = "Seamless shareserver websocket update port was not bound"
-            ininst.error = True
-            ininst.error_message = msg
-            return
-        if rest_port is None:
-            msg = "Seamless shareserver REST port was not bound"
-            ininst.error = True
-            ininst.error_message = msg
-            return
-        inst = Instance(update_port, rest_port)
-        inst.container = container
-        inst.service_dir = os.path.abspath(service_dir)
-        inst.service_name = service_name
-        inst.container_logger = container_logger
-        instances[instance] = inst
-    finally:
-        os.chdir(cwd)
+    update_port, rest_port = None, None
+    for l in output.splitlines():
+        fields = l.split("->")
+        if len(fields) != 2:
+            continue
+        container_port = fields[0].strip()
+        ff = fields[1].split(":")
+        if len(ff) != 2:
+            continue
+        try:
+            host_port = int(ff[1])
+        except ValueError:
+            continue
+        if container_port == '5138/tcp':
+            update_port = host_port
+        elif container_port == "5813/tcp":
+            rest_port = host_port
+    if update_port is None:
+        msg = "Seamless shareserver websocket update port was not bound"
+        ininst.error = True
+        ininst.error_message = msg
+        return
+    if rest_port is None:
+        msg = "Seamless shareserver REST port was not bound"
+        ininst.error = True
+        ininst.error_message = msg
+        return
+    inst = Instance(update_port, rest_port)
+    inst.container = container
+    inst.service_dir = service_dir
+    inst.service_name = service_name
+    inst.container_logger = container_logger
+    inst.temp_dir = temp_dir
+    instances[instance] = inst
     return instance
 
 
-async def launch_instance(req):
+
+def launch_instance(service, *, instance=None, existing_graph=None):
+    launch_threads[:] = [t for t in launch_threads if t.is_alive()]
+    if instance is None:
+        instance = get_new_instance()
+    else:
+        assert existing_graph is not None
+    ininst = IncompleteInstance()
+    instances[instance] = ininst
+    t = threading.Thread(
+        target=launch,
+        args=(instance, service),
+        kwargs={"existing_graph": existing_graph}
+    )
+    t.name = instance
+    launch_threads.append(t)
+    t.start()
+    icicle.snoop(instance, service, 2)
+    return instance
+
+async def browser_launch_instance(req):
     data = await req.post()
     service = data.get("service", None)
     if service is None:
@@ -291,27 +327,14 @@ async def launch_instance(req):
         )
 
     try:
-        launch_threads[:] = [t for t in launch_threads if t.is_alive()]
-        instance = get_new_instance()
-        t = threading.Thread(target=launch, args=(instance, service))
-        t.name = instance
-        launch_threads.append(t)
-        t.start()
+        instance = launch_instance(service)
     except Exception:
         exc = traceback.format_exc()
         return web.Response(
             status=500,
             text=exc
         )
-    else:
-        return instance
-
-async def browser_launch_instance(req):
-    result = await launch_instance(req)
-    if isinstance(result, int):   # instance
-        raise web.HTTPFound('/instance/{}/'.format(result))
-    else:
-        return result
+    raise web.HTTPFound('/instance/{}/'.format(instance))
 
 def stop_container(inst):
     container = inst.container
@@ -347,6 +370,7 @@ async def kill_instance(req):
             text="Instance does not exist"
         )
     inst = instances.pop(instance)
+    icicle.unsnoop(instance)
     stop_container(inst)
     return web.Response(status=200)
 
@@ -465,7 +489,14 @@ async def main_page(req):
 async def redirect(req):
     raise web.HTTPFound('/index.html')
 
+reverse_proxy_module.launch_instance = launch_instance
+
 if __name__ == "__main__":
+    os.chdir(currdir)
+    _load_services()
+    icicle.rest_server = rest_server
+    icicle.instances = instances
+    icicle.currdir = currdir
     app = web.Application()
     app.router.add_route('GET','/', redirect)
     app.router.add_route('GET','/index.html', main_page)
@@ -499,6 +530,7 @@ if __name__ == "__main__":
                 continue
             print("Killing instance", instance)
             try:
+                icicle.unsnoop(instance)
                 stop_container(inst)
             except:
                 traceback.print_exc()

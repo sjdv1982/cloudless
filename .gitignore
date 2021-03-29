@@ -1,6 +1,8 @@
 # Deployed graphs
 graphs/
 
+# Running and icicle instances
+instances/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -1,7 +1,10 @@
+from genericpath import exists
+from scripts.cloudless import launch_instance
 import aiohttp
 from aiohttp import web
 import asyncio
 import pprint
+import traceback
 
 async def reverse_proxprox_websocket(ws_proxying, ws_client, connection_id):
     from proxy import msg_pack
@@ -85,7 +88,23 @@ async def reverse_proxy(req, rest_server, update_server, instances):
         pass
     tail = req.match_info.get('tail')
     if instance not in instances:
-        return web.Response(status=404,text="Unknown instance")
+        graph = get_graph(instance)
+        if graph is None:
+            return web.Response(status=404,text="Unknown instance")
+        graph, service = graph
+        try:
+            launch_instance(
+                service,
+                instance=instance,
+                existing_graph=graph
+            )
+            assert instance in instances
+        except Exception:
+            exc = traceback.format_exc()
+            return web.Response(
+                status=500,
+                text=exc
+            )
 
     inst = instances[instance]
 
@@ -126,3 +145,6 @@ Loading...
                 "data": await req.read()
             }
             return await reverse_proxy_http(reqdata, client, rest_server, rest_port, tail)
+
+from icicle import get_graph
+launch_instance = None  # to be set by importing module

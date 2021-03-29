@@ -39,7 +39,7 @@ c=$(docker run \
   -v /var/run/docker.sock:/var/run/docker.sock \
   --group-add $(getent group docker | cut -d: -f3) \
   -u jovyan \
-  seamless-devel python3 -u /home/jovyan/seamless-scripts/serve-graph.py $f --redis --debug\
+  seamless-devel python3 -u /home/jovyan/seamless-scripts/serve-graph.py $f --database \
   $@ \
 )
 
