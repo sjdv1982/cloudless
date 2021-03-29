@@ -14,10 +14,14 @@
 
 ## Setup of the database adapter
 
-  1. You need to setup a database.yaml, see /cloudless/jobless/tests/database-minimal.yaml for an example.
+  1. You need to setup a database.yaml, see `/cloudless/jobless/tests/database-minimal.yaml` for an example.
   2. Define a Seamless database startup command.
-     For an example script that uses Singularity, see /cloudless/jobless/tests/start-seamless-database. You need to adapt it by defining where it can find the Seamless Singularity image (.simg file). See the Seamless installation instructions on GitHub on how to build a Singularity image for Seamless.
-     Alternatively, the Seamless database can be started directly using Docker, by copying and adapting `seamless-database`. Note that within a Docker container, the database files are by default visible as /data. Jobless (see next section) will then require a flatfile adapter to be defined in its .yaml file.
+     For an example script that uses Singularity, see `/cloudless/jobless/tests/start-seamless-database`. You need to adapt it by defining where it can find the Seamless Singularity image (.simg file).
+
+     Building the Seamless Singularity image can be done as described in  `https://github.com/sjdv1982/seamless#alternative-installations`
+
+     Alternatively, the Seamless database can be started directly using Docker, by copying and adapting `seamless-database`.
+     Note that within a Docker container, the database files are by default visible as `/data`. Jobless (see next section) will then require a flatfile adapter to be defined in its .yaml file.
   3. Start the Seamless database. For the rest of the guide, it is assumed to be always running.
 
 ### How to delete your database
@@ -35,24 +39,23 @@ If your DB has a Redis backend:
 
 Like Cloudless, Jobless runs without containerization.
 Jobless configuration needs to be done in a .yaml file.
-See /cloudless/jobless/tests/local.yaml for a minimal example, where bash transformers and
-Docker transformers are run as jobs locally.
-Launch jobless with python3 /cloudless/jobless/jobless.py jobless-config.yaml
+See `/cloudless/jobless/tests/local.yaml` for a minimal example, where bash transformers and Docker transformers are run as jobs locally.
+Launch jobless with `python3 /cloudless/jobless/jobless.py jobless-config.yaml`
 
 ### Testing Jobless
 
-- Delete the database
+- Delete the database (see above)
 - Make sure that the Docker images "ubuntu", "rpbs/seamless" and "rpbs/autodock" are available
   as Docker or Singularity images in the place where the jobs will be run.
-- Go to /cloudless/jobless/tests
+- Go to `/cloudless/jobless/tests`
 - Launch a shell in a Seamless container with `seamless-bash`
-- Run the tests bash.py, docker_.py and autodock.py with python3.
+- Run the tests `bash.py`, `docker_.py` and `autodock.py` with python3.
   See the .expected-output files in the same folder.
   If the output contains instead `Local computation has been disabled for this Seamless instance`, then the test has failed.
 
 ## Installation on remote nodes (if any)
 
-- Clone the Cloudless repo. Define $CLOUDLESSDIR in your .bashrc.
+- Clone the Cloudless repo. Define `$CLOUDLESSDIR` in your .bashrc.
 
 - Install Seamless (`docker pull rpbs/seamless && conda install -c rpbs seamless-cli`)
 
@@ -91,8 +94,6 @@ are "fat", i.e. they do all the work either themselves or delegate it to jobless
     ```
 
     The first lines should contain `INCOMING` and `ADD SERVANT`
-
-    The last line should be `None`, not `Local computation has been disabled for this Seamless instance`
 
 The last line should be `None`.
 If is instead `Local computation has been disabled for this Seamless instance`, then the test has failed.
@@ -184,7 +185,8 @@ This should print something like:
 
 - On the node: `docker run --rm --network=host rpbs/seamless`
 
-- On the master: define nodeIP, then `curl -v $nodeIP:8888`
+- On the master: define the variable `nodeIP` as the IP address of the node.
+Then `curl -v $nodeIP:8888`
 
 This should print the same as for the previous test.
 
@@ -320,7 +322,7 @@ cp service.seamless $CLOUDLESSDIR/graphs
 ```
 Services can be reloaded dynamically in the Seamless admin page.
 
-- Start Cloudless with one of the ./start-cloudless*.sh scripts. The three basic options are "fat", "local" and "remote".
+- Start Cloudless with one of the `./start-cloudless*.sh` scripts. The three basic options are "fat", "local" and "remote".
 
 Whenever a Seamless instance is launched, Cloudless will create a Docker container for it, that serves the graph.
 A graph-serving container are named cloudless-123456, where 123456 is the instance ID.
@@ -337,9 +339,14 @@ On the master, this requires the environment variable "CLOUDLESS_NODES" to be se
 (i.e. IP addresses or entries in ~/.ssh/config)
 
 On each node:
-    - Cloudless must be installed, and $CLOUDLESSDIR must be defined
-    - $masterIP must be defined
-    - $CLOUDLESS_JOBSLAVES must be defined
+
+- ssh from the master must not require a password
+
+- Cloudless must be installed, and $CLOUDLESSDIR must be defined
+
+- $masterIP must be defined
+
+- $CLOUDLESS_JOBSLAVES must be defined
 
 - Stopping Cloudless kills both the jobslave and the graph serving containers. A future version of Cloudless will monitor the graphs and store them in Redis, so that the graph serving containers can be reconstituted at will.
 
@@ -347,7 +354,10 @@ On each node:
 
 First, run `init.sh`.
 
-It is assumed that you can forward ports to the browser, either by manual SSH tunneling or using VSCode.
+It is assumed that you can forward ports to the browser, either:
+- by being physically present at the machine that runs Cloudless
+- by manual SSH tunneling or X display forwarding
+- by using VSCode Remote Explorer.
 If not, you may want to go to section E first.
 
 ## Command-line test
@@ -416,9 +426,11 @@ See http://localhost:3124, http://localhost:3124/admin/
 
 ## nginx setup
 
-Follow the instructions in nginx/README.md . After that, you can run the tests in section D, substituting http://myserver.com/cloudless for http://localhost:3124 .
+Follow the instructions in `nginx/README.md` . After that, you can run the tests in section D, replacing http://localhost:3124 with http://myserver.com/cloudless.
 
 ## Cloudless-to-Cloudless communication
+
+(experimental!)
 
 With a public Cloudless server accessible via http://myserver.com/cloudless, you can connect a local Cloudless instance to it. The syntax is `$CLOUDLESSDIR/cloudless-to-cloudless http://localhost:3124 ws://myserver.com/cloudless PROXYNAME`. As long as cloudless-to-cloudless is running, a URL such as `http://myserver.com/cloudless/proxy/PROXYNAME/1234567/ctx/index.html` is redirected to `http://localhost:3124/instances/1234567/ctx/index.html`. The proxying is done by cloudless-to-cloudless, much like an SSH tunnel, i.e. no public IP address or URL for the local machine is needed. (This is in contrast to `$CLOUDLESSDIR/connect_instance`, where the ports are on the *public server*, not on the local machine that calls `connect_instance`).
 

@@ -9,7 +9,7 @@ SSL, DDoS protection, etc.
 
 - Go to the folder `docker/`.
 - If necessary, adapt the `nginx.conf`. Note that the existing `nginx.conf` assumes that the Docker bridge network IP is 172.17.0.1.
-- You can launch it as follows: `docker run --rm --name nginx-cloudless-container -p 80:80 -v $(pwd)/nginx.conf:/etc/nginx/nginx.conf:ro nginx`
+- You can launch it as follows: `docker pull nginx && docker run --rm --name nginx-cloudless-container -p 80:80 -v $(pwd)/nginx.conf:/etc/nginx/nginx.conf:ro nginx`
 - Alternatively, build the Docker image with `docker build -t nginx-cloudless . `
 - Then, you can launch it as `docker run --rm --name nginx-cloudless-container -p 80:80 nginx-cloudless`
 - In both cases, add a detach (`-d`) option if you don't want to keep the shell open.
