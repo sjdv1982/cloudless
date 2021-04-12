@@ -50,6 +50,7 @@ class ShellBackend(Backend):
         PROCESS = None
         old_cwd = os.getcwd()
         tempdir = tempfile.mkdtemp(prefix="jobless-", dir=self.JOB_TEMPDIR)
+        print("Running shell job in {}".format(tempdir), file=sys.stderr)
         try:
             os.chdir(tempdir)
             env = {}
