@@ -118,7 +118,7 @@ async def reverse_proxy(req, rest_server, update_server, instances):
                 status=202,
                 text="""
 <head>
-  <meta http-equiv="refresh" content="3">
+  <meta http-equiv="refresh" content="5">
 </head>
 <body>
 Loading...
