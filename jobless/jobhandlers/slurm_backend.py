@@ -48,6 +48,7 @@ class SlurmBackend(Backend):
 
         old_cwd = os.getcwd()
         tempdir = tempfile.mkdtemp(prefix="jobless-",dir=self.JOB_TEMPDIR)
+        print("Running slurm job in {}".format(tempdir), file=sys.stderr)
         try:
             os.chdir(tempdir)
             env = {}
