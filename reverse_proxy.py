@@ -1,6 +1,7 @@
 from genericpath import exists
 import aiohttp
 from aiohttp import web
+from aiohttp.client_exceptions import ClientOSError
 import asyncio
 import pprint
 import traceback
@@ -118,7 +119,7 @@ async def reverse_proxy(req, rest_server, update_server, instances):
                 status=202,
                 text="""
 <head>
-  <meta http-equiv="refresh" content="5">
+  <meta http-equiv="refresh" content="3">
 </head>
 <body>
 Loading...
@@ -129,21 +130,25 @@ Loading...
 
     update_port = inst.update_port
     rest_port = inst.rest_port
-    async with aiohttp.ClientSession(cookies=req.cookies) as client:
-        if reqH.get('connection','').lower() == 'upgrade' \
-          and reqH.get('upgrade', '').lower() == 'websocket' \
-          and req.method == 'GET':
-            await reverse_proxy_websocket(req, client, update_server, update_port, tail)
-            return
-        else:
-            reqdata = {
-                "method": req.method,
-                "headers": req.headers.copy(),
-                "query": req.query,
-                "instance" : req.match_info.get('instance'),
-                "data": await req.read()
-            }
-            return await reverse_proxy_http(reqdata, client, rest_server, rest_port, tail)
+    for retries in range(3):
+        try:
+            async with aiohttp.ClientSession(cookies=req.cookies) as client:
+                if reqH.get('connection','').lower() == 'upgrade' \
+                and reqH.get('upgrade', '').lower() == 'websocket' \
+                and req.method == 'GET':
+                    await reverse_proxy_websocket(req, client, update_server, update_port, tail)
+                    return
+                else:
+                    reqdata = {
+                        "method": req.method,
+                        "headers": req.headers.copy(),
+                        "query": req.query,
+                        "instance" : req.match_info.get('instance'),
+                        "data": await req.read()
+                    }
+                    return await reverse_proxy_http(reqdata, client, rest_server, rest_port, tail)
+        except ClientOSError:
+            await asyncio.sleep(3)
 
 from icicle import get_graph
 launch_instance = None  # to be set by importing module
