@@ -1,7 +1,7 @@
 from .file_transformer_plugin import FileTransformerPluginBase
 
 class DockerTransformerPlugin(FileTransformerPluginBase):
-    REQUIRED_TRANSFORMER_PINS = ['docker_command', 'docker_image', "docker_options", "pins_"]
+    REQUIRED_TRANSFORMER_PINS = ['docker_command', 'docker_image', "pins_"]
     TRANSFORMER_CODE_CHECKSUMS = [
         # Seamless checksums for /seamless/graphs/docker_transformer/executor.py
         # Note that these are semantic checksums (invariant for whitespace),
