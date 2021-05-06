@@ -5,6 +5,7 @@ from aiohttp.client_exceptions import ClientOSError
 import asyncio
 import pprint
 import traceback
+import time
 
 async def reverse_proxprox_websocket(ws_proxying, ws_client, connection_id):
     from proxy import msg_pack
@@ -55,7 +56,7 @@ async def reverse_proxy_websocket(req, client, update_server, port, tail):
         await asyncio.wait([ws_forward(ws_server,ws_client),ws_forward(ws_client,ws_server)],return_when=asyncio.FIRST_COMPLETED)
 
 
-async def reverse_proxy_http(reqdata, client, rest_server, port, tail):
+async def reverse_proxy_http(reqdata, client, rest_server, port, tail, instance=None):
     reqH = reqdata["headers"]
     async with client.request(
         reqdata["method"],"{}:{}/{}".format(rest_server, port, tail),
@@ -67,12 +68,16 @@ async def reverse_proxy_http(reqdata, client, rest_server, port, tail):
         headers = res.headers.copy()
         del headers['content-length']
         if "location" in headers:
-            instance = reqdata["instance"]
+            instance_name = reqdata["instance"]
             headers["location"] = "/instance/{}{}".format(
-                instance,
+                instance_name,
                 headers["location"]
             )
+        if instance is not None:
+            instance.last_request_time = time.time()
         body = await res.read()
+        if instance is not None:
+            instance.last_request_time = time.time()
         return web.Response(
             headers = headers,
             status = res.status,
@@ -115,18 +120,28 @@ async def reverse_proxy(req, rest_server, update_server, instances):
                 text="***Launch error***\n\n" + inst.error_message
             )
         else:
-            return web.Response(
-                status=202,
-                text="""
+            if req.method == 'GET': 
+                return web.Response(
+                    status=202,
+                    text="""
 <head>
   <meta http-equiv="refresh" content="3">
 </head>
 <body>
 Loading...
 </body>
-                """,
-                content_type='text/html'
-            )
+                    """,
+                    content_type='text/html'
+                )
+            else:
+                for retries in range(30):
+                    await asyncio.sleep(1)
+                    inst = instances.get(instance)
+                    if inst is None:
+                        return web.Response(500)
+                    if inst.complete:
+                        break
+
 
     update_port = inst.update_port
     rest_port = inst.rest_port
@@ -135,10 +150,11 @@ Loading...
             async with aiohttp.ClientSession(cookies=req.cookies) as client:
                 if reqH.get('connection','').lower() == 'upgrade' \
                 and reqH.get('upgrade', '').lower() == 'websocket' \
-                and req.method == 'GET':
+                and req.method == 'GET':                    
                     await reverse_proxy_websocket(req, client, update_server, update_port, tail)
                     return
                 else:
+                    inst.last_request_time = time.time()
                     reqdata = {
                         "method": req.method,
                         "headers": req.headers.copy(),
@@ -146,7 +162,12 @@ Loading...
                         "instance" : req.match_info.get('instance'),
                         "data": await req.read()
                     }
-                    return await reverse_proxy_http(reqdata, client, rest_server, rest_port, tail)
+                    inst.last_request_time = time.time()
+                    return await reverse_proxy_http(
+                        reqdata, client, rest_server, 
+                        rest_port, tail,
+                        inst
+                    )
         except ClientOSError:
             await asyncio.sleep(3)
 

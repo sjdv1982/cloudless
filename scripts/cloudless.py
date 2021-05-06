@@ -11,6 +11,7 @@ import threading
 from functools import partial
 import tempfile
 import sys
+import re
 
 import proxy as proxy_module
 import reverse_proxy as reverse_proxy_module
@@ -68,15 +69,17 @@ class Instance:
     service_name = None
     proxy_websocket = None
     temp_dir = None
+    last_request_time = None
 
     def __init__(self, update_port, rest_port):
         self.update_port = update_port
         self.rest_port = rest_port
-
+        self.last_request_time = time.time()
 
 class IncompleteInstance:
     """Class to describe instances that are launching, or where launch failed"""
     complete = False
+    service_name = None
     error = False
     error_message = None
 
@@ -196,6 +199,7 @@ async def connect_from_cloudless(req):
         )
 
 def launch(instance, service_name, existing_graph=None):
+    print("LAUNCHING", instance)
     ininst = instances[instance]
     service_dir, service_file, service_status_file = services[service_name]
     service_dir = os.path.abspath(service_dir)
@@ -211,6 +215,8 @@ def launch(instance, service_name, existing_graph=None):
         f.write(graph)
     with open(os.path.join(temp_dir.name, "status-graph.seamless"), "w") as f:
         f.write(status_graph)
+    with open(icicle.get_graph_output_file(instance, service_name), "w") as f:
+        f.write(graph)        
     launch_command = os.path.abspath("../docker/commands/{}".format(serve_graph_command))
     container = "cloudless-{}".format(instance)
     cmd = """
@@ -289,6 +295,7 @@ def launch(instance, service_name, existing_graph=None):
     inst.container_logger = container_logger
     inst.temp_dir = temp_dir
     instances[instance] = inst
+    print("LAUNCHED", instance)
     return instance
 
 
@@ -300,6 +307,7 @@ def launch_instance(service, *, instance=None, existing_graph=None):
     else:
         assert existing_graph is not None
     ininst = IncompleteInstance()
+    ininst.service_name = service
     instances[instance] = ininst
     t = threading.Thread(
         target=launch,
@@ -406,6 +414,11 @@ async def admin_overview(req):
     <tr><th>Instance</th><th>Service</th><th></th><th></th><th></th></tr>
     {}
     </table>
+    <h1>List of instances on ice</h1>
+    <table>
+    <tr><th>Instance</th><th>Service</th><th></th><th></th><th></th></tr>
+    {}
+    </table>
 </body>
 </html>
     """
@@ -430,8 +443,11 @@ async def admin_overview(req):
     instance_txt = ""
     for instance in instances:
         inst =  instances[instance]
-        container, service_name = \
-          inst.container, inst.service_name
+        service_name = inst.service_name
+        if isinstance(inst, IncompleteInstance):
+            container = True
+        else:
+            container = inst.container 
         go_link="../instance/{}/".format(instance)
         cgo_link = "<a href='{}'>Go to instance</a>".format(go_link)
         status_link="../instance/{}/status/".format(instance)
@@ -442,9 +458,27 @@ async def admin_overview(req):
             instance, service_name, cgo_link, cstatus_link, ckill_form
         )
         instance_txt += "    " + s + "\n"
+    ice_instance_txt = ""
+    for filename in sorted(glob.glob("../instances/*-*.seamless")):
+        try:
+            service_name, instance = re.match("\.\./instances/(.*)-(.*)\.seamless", filename).groups()
+            instance = int(instance)
+        except:
+            pass
+        if instance in instances:
+            continue
+        go_link="../instance/{}/".format(instance)
+        cgo_link = "<a href='{}'>Go to instance</a>".format(go_link)
+        status_link="../instance/{}/status/".format(instance)
+        cstatus_link = "<a href='{}'>Go to status</a>".format(status_link)
+        s = "<tr><th>{}</th><th>{}</th><th>{}</th><th>{}</th></tr>".format(
+            instance, service_name, cgo_link, cstatus_link
+        )
+        ice_instance_txt += "    " + s + "\n"
+
     return web.Response(
         status=200,
-        body=txt.format(service_txt, instance_txt),
+        body=txt.format(service_txt, instance_txt, ice_instance_txt),
         content_type='text/html'
     )
 async def admin_redirect(req):
@@ -489,6 +523,21 @@ async def main_page(req):
 async def redirect(req):
     raise web.HTTPFound('/index.html')
 
+RUNNING = False
+async def kill_inactive_instances(timeout):
+    # timeout in secs
+    while RUNNING:
+        await asyncio.sleep(2)
+        t = time.time()
+        for instance_name, inst in list(instances.items()):
+            if isinstance(inst, IncompleteInstance):
+                continue
+            if inst.last_request_time + timeout < t:
+                instances.pop(instance_name)
+                icicle.unsnoop(instance_name)
+                stop_container(inst)       
+                print("KILL", instance_name)         
+
 reverse_proxy_module.launch_instance = launch_instance
 
 if __name__ == "__main__":
@@ -521,6 +570,7 @@ if __name__ == "__main__":
 
     async def on_shutdown(app):
         print("Shutting down...")
+        RUNNING = False
         for t in launch_threads:
             if t.is_alive():
                 print("Awaiting launch thread", t.name)
@@ -534,5 +584,10 @@ if __name__ == "__main__":
                 stop_container(inst)
             except:
                 traceback.print_exc()
+        await inactive_instance_killer
+    RUNNING = True
+    inactive_instance_killer = asyncio.ensure_future(kill_inactive_instances(10*60))
     app.on_shutdown.append(on_shutdown)
     web.run_app(app,port=cloudless_port)
+
+   
