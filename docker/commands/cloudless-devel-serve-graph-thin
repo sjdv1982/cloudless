@@ -6,7 +6,7 @@ set -u -e
 #      how Docker Bridge rewrites the IP address origin
 #    NOTE: THIS IS A BIG SECURITY HOLE IF YOUR EPHEMERAL PORTS ARE VISIBLE TO THE OUTSIDE
 
-seamlessdir=`python3 -c 'import seamless,os;print(os.path.dirname(seamless.__file__))'`/../
+seamlessdir=$SEAMLESSDIR
 
 bridge_ip=$(docker network inspect bridge \
   | python3 -c '''
@@ -34,9 +34,10 @@ c=$(docker run \
   -P \
   -v `pwd`:/cwd \
   --workdir /cwd \
-  -u jovyan \
-  seamless-devel python3 -u /seamless/scripts/serve-graph.py \
-    $f --redis --ncores 0 \
+  -u `id -u` \
+  --group-add users \
+  seamless-devel start.sh python3 -u /seamless/scripts/serve-graph.py \
+    $f --database --ncores 0 \
     --communion_id $name \
     $@ \
 )
