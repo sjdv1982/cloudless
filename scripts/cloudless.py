@@ -532,7 +532,7 @@ async def kill_inactive_instances(timeout):
         for instance_name, inst in list(instances.items()):
             if isinstance(inst, IncompleteInstance):
                 continue
-            if inst.last_request_time + timeout < t:
+            if inst.container is not None and inst.last_request_time + timeout < t:
                 instances.pop(instance_name)
                 icicle.unsnoop(instance_name)
                 stop_container(inst)       
