@@ -70,6 +70,7 @@ Jobs are submitted by checksum. There is also a job status API, which can return
 class JoblessServer:
     future = None
     PROTOCOL = ("seamless", "communion", "0.2.1")
+    TRANSFORMATION_INDEPENDENT_AGE = 60   # after this time, jobs continue even if all submitting peers get canceled
     _started = False
     def __init__(self, address, port, communion_id):
         self.address = address
@@ -81,6 +82,7 @@ class JoblessServer:
         self.rev_peers = {} # connection => peer-id
         self.message_count = {}
         self.transformations = {} # checksum => jobhandler
+        self.transformation_births = {} # checksum => time
         self.peer_transformations = {} # peer-id => checksums
         self.transformation_peers = {}  # checksum => peer-cid
         self.jobhandlers = []
@@ -276,6 +278,7 @@ class JoblessServer:
             if result == 1:
                 jobhandler.run_transformation(checksum, transformation)
                 self.transformations[checksum] = jobhandler
+                self.transformation_births[checksum] = time.time()
                 self.transformation_peers[checksum] = set([peer_id])
                 self.peer_transformations[peer_id].add(checksum)
                 result = "OK"
@@ -295,9 +298,13 @@ class JoblessServer:
         peers = self.transformation_peers[checksum]
         peers.discard(peer_id)
         if not len(peers):
-            self.transformation_peers.pop(checksum)
-            jobhandler = self.transformations.pop(checksum)
-            jobhandler.cancel_transformation(checksum)
+            birth = self.transformation_births[checksum]
+            if time.time() - birth < self.TRANSFORMATION_INDEPENDENT_AGE:
+                print("CANCEL", checksum.hex())
+                self.transformation_peers.pop(checksum)
+                jobhandler = self.transformations.pop(checksum)
+                self.transformation_births.pop(checksum)
+                jobhandler.cancel_transformation(checksum)
 
     def hard_cancel(self, checksum, peer_id):
         if checksum not in self.transformation_peers:
@@ -310,6 +317,7 @@ class JoblessServer:
             self.peer_transformations[peer_id].remove(checksum)
         self.transformation_peers.pop(checksum)
         jobhandler = self.transformations.pop(checksum)
+        self.transformation_births.pop(checksum)
         jobhandler.cancel_transformation(checksum)
 
 
