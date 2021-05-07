@@ -131,11 +131,11 @@ def execute_local(bashcode, env, resultfile):
     global PROCESS
     try:
         bash_header = """set -u -e
-trap 'jobs -p | xargs -r kill' EXIT
-"""
+""" # don't add "trap 'jobs -p | xargs -r kill' EXIT" as it gives serious problems
+
         bashcode2 = bash_header + bashcode
         process = subprocess.run(
-            ["-i", bashcode2], capture_output=True, shell=True, check=True,
+            bashcode2, capture_output=True, shell=True, check=True,
             executable='/bin/bash',
             env=env
         )
