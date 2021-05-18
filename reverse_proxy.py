@@ -1,7 +1,7 @@
 from genericpath import exists
 import aiohttp
 from aiohttp import web
-from aiohttp.client_exceptions import ClientOSError
+from aiohttp.client_exceptions import ClientConnectionError
 import asyncio
 import pprint
 import traceback
@@ -145,7 +145,7 @@ Loading...
 
     update_port = inst.update_port
     rest_port = inst.rest_port
-    for retries in range(3):
+    for retries in range(5):
         try:
             async with aiohttp.ClientSession(cookies=req.cookies) as client:
                 if reqH.get('connection','').lower() == 'upgrade' \
@@ -168,7 +168,7 @@ Loading...
                         rest_port, tail,
                         inst
                     )
-        except ClientOSError:
+        except ClientConnectionError:
             await asyncio.sleep(3)
 
 from icicle import get_graph
