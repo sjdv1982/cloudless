@@ -570,6 +570,7 @@ if __name__ == "__main__":
     app.router.add_route('GET','/connect_from_cloudless', connect_from_cloudless)
 
     async def on_shutdown(app):
+        global RUNNING
         print("Shutting down...")
         RUNNING = False
         shutdown_time = time.time() + 20
