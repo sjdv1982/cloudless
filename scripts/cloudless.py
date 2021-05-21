@@ -1,3 +1,4 @@
+from logging import shutdown
 from aiohttp import web
 import aiohttp
 import asyncio
@@ -571,10 +572,14 @@ if __name__ == "__main__":
     async def on_shutdown(app):
         print("Shutting down...")
         RUNNING = False
+        shutdown_time = time.time() + 20
         for t in launch_threads:
             if t.is_alive():
                 print("Awaiting launch thread", t.name)
-            t.join(timeout=20)
+                timeout = shutdown_time - time.time()
+                if timeout < 0.2:
+                    timeout = 0.2
+                t.join(timeout=timeout)
         for instance, inst in instances.items():
             if not inst.complete:
                 continue
