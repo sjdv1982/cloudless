@@ -11,6 +11,7 @@ class DockerTransformerPlugin(FileTransformerPluginBase):
         'c67306290a03743107019eb883582e4fa53e544d1485e7a4de404ea918476557', # Seamless 0.5
         '38c1d48e4981d977570ad9f0107128bcf7a0f7cadfee0f84fe9cda3290751874', # Seamless 0.6-devel
         '7ca0196fef59b9d7e02d8334eb77b43a3d44cdf4a8a1c9bc1876d66fc7af94d5', # Seamless 0.6
+        'c2c1a13ba4a68004eaeb9b5300473c1b39ebfc6dff922ad1893fe67b9668c80d', # Seamless 0.7
     ]
 
     def required_pin_handler(self, pin, transformation):
