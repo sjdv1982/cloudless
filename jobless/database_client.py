@@ -7,6 +7,10 @@ from hashlib import sha3_256
 
 session = requests.Session()
 
+EMPTY_DICT = "d0a1b2af1705c1b8495b00145082ef7470384e62ac1c4d9b9cdbbe0476c28f8c"
+B_EMPTY_DICT = bytes.fromhex(EMPTY_DICT)
+BUFFER_EMPTY_DICT = b'{}\n'
+
 class DatabaseClient:
     active = False
     PROTOCOL = ("seamless", "database", "0.0.2")
@@ -32,6 +36,8 @@ class DatabaseClient:
             return
         if isinstance(checksum, str):
             checksum = bytes.fromhex(checksum)
+        if checksum == B_EMPTY_DICT:
+            return True
         url = "http://" + self.host + ":" + str(self.port)
         request = {
             "type": "has buffer",
@@ -69,6 +75,8 @@ class DatabaseClient:
     def get_buffer(self, checksum):
         if isinstance(checksum, str):
             checksum = bytes.fromhex(checksum)
+        if checksum == B_EMPTY_DICT:
+            return BUFFER_EMPTY_DICT
         request = {
             "type": "buffer",
             "checksum": checksum.hex(),
@@ -84,6 +92,8 @@ class DatabaseClient:
     def get_buffer_length(self, checksum):
         if isinstance(checksum, str):
             checksum = bytes.fromhex(checksum)
+        if checksum == B_EMPTY_DICT:
+            return len(BUFFER_EMPTY_DICT)
         request = {
             "type": "buffer length",
             "checksum": checksum.hex(),
