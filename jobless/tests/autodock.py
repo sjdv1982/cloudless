@@ -18,8 +18,7 @@ seamless.database_cache.connect()
 
 ctx = Context()
 ctx.mol22pdb = Transformer()
-ctx.mol22pdb.language = "docker"
-ctx.translate()
+ctx.mol22pdb.language = "bash"
 ctx.mol22pdb.code.mount("mol22pdb.bash", authority="file")
 ctx.mol22pdb.docker_image = "rpbs/autodock"
 ctx.mol2 = Cell("text")

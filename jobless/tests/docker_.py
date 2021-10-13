@@ -20,7 +20,7 @@ ctx = Context()
 ctx.code = "head -$lines testdata > RESULT"
 ctx.code.celltype = "text"
 ctx.tf = lambda lines, testdata: None
-ctx.tf.language = "docker"
+ctx.tf.language = "bash"
 ctx.tf.docker_image = "ubuntu"
 ctx.tf.testdata = "a \nb \nc \nd \ne \nf \n"
 ctx.tf.lines = 3
@@ -30,6 +30,8 @@ ctx.result.celltype = "mixed"
 ctx.translate()
 ctx.compute()
 print(ctx.result.value)
+print(ctx.tf.status)
+print(ctx.tf.exception)
 ctx.code = "head -3 testdata > firstdata; tar hczf RESULT testdata firstdata"
 ctx.compute()
 print(ctx.result.value)

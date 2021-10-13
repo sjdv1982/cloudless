@@ -65,7 +65,7 @@ class ShellBackend(Backend):
     def launch_transformation(self, checksum, transformation, prepared_transformation):
         prepared_transformation = prepared_transformation.copy()
         for key in prepared_transformation:
-            if key == "__checksum__":
+            if key in ("__checksum__", "__env__"):
                 continue
             filename, value, env_value = prepared_transformation[key]
             if filename is None:
@@ -112,6 +112,21 @@ class ShellBackend(Backend):
             task.cancel()
 
 
+def get_docker_command_and_image(prepared_transformation):
+    if "bashcode" in prepared_transformation:
+        docker_command = prepared_transformation["bashcode"][1]
+    else:
+        docker_command = prepared_transformation["docker_command"][1]
+        if isinstance(docker_command, bytes):
+            docker_command = docker_command.decode()
+    if "docker_image_" in prepared_transformation:
+        docker_image = prepared_transformation["docker_image_"][1].decode()
+        docker_image = json.loads(docker_image)
+        if isinstance(docker_image, bytes):
+            docker_image = docker_image.decode()
+    else:
+        docker_image = prepared_transformation["__env__"]["docker"]["name"]
+    return docker_command, docker_image
 
 def read_data(data):
     try:
@@ -400,8 +415,9 @@ class ShellDockerBackend(ShellBackend):
         super().__init__(*args, **kwargs)
 
     def run(self, checksum, transformation, prepared_transformation, tempdir, env):
-        docker_command = prepared_transformation["docker_command"][1]
-        docker_image = prepared_transformation["docker_image"][1]
+        docker_command, docker_image = get_docker_command_and_image(
+            prepared_transformation
+        )
         msg = "Submit shell docker job, checksum {}, image {}"
         print(
             msg.format(

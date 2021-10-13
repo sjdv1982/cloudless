@@ -33,7 +33,7 @@ If your DB has a flatfile backend:
     `rm *-* -f`
 
 If your DB has a Redis backend:
-    Flush Redis DB: `docker exec redis-container redis-cli flushall`
+    Flush Redis DB: `docker exec seamless-redis-container redis-cli flushall`
 
 ## Setting up Jobless
 
@@ -51,7 +51,7 @@ Launch jobless with `python3 /cloudless/jobless/jobless.py jobless-config.yaml`
 - Launch a shell in a Seamless container with `seamless-bash`
 - Run the tests `bash.py`, `docker_.py` and `autodock.py` with python3.
   See the .expected-output files in the same folder.
-  If the output contains instead `Local computation has been disabled for this Seamless instance`, then the test has failed.
+  If the output contains instead `Local computation has been disabled for this Seamless instance` or `Environment power cannot be granted: 'docker'`, then the test has failed.
 
 ## Installation on remote nodes (if any)
 

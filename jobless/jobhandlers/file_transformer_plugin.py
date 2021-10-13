@@ -24,8 +24,14 @@ class FileTransformerPluginBase(TransformerPlugin):
     REQUIRED_TRANSFORMER_PINS = []  # to be defined in subclass
     TRANSFORMER_CODE_CHECKSUMS = []  # to be defined in subclass
 
+    def allowed_docker_image(self, docker_image):
+        return False
+
+    def allowed_powers(self, powers):
+        return powers is None or len(powers) == 0
+
     def required_pin_handler(self, pin, transformation):
-        """Obtain the value of required pins (such as bashcode, docker_image, etc.)
+        """Obtain the value of required pins (such as bashcode etc.)
         To be re-implemented by the subclass
 
         return tuple (skip, json_value_only, json_buffer, write_env)
@@ -49,8 +55,33 @@ class FileTransformerPluginBase(TransformerPlugin):
         raise NotImplementedError
 
     def can_accept_transformation(self, checksum, transformation):
+        env = None
+        if "__env__" in transformation:
+            env_buf = self.database_client.get_buffer(transformation["__env__"])
+            if env_buf is None:
+                return -1
+            try:
+                env = json.loads(env_buf)
+            except:
+                return -1
+            powers = env.get("powers")
+            if not self.allowed_powers(powers):
+                return -1
+            docker_image = env.get("docker", {}).get("name")
+            if docker_image is not None:
+                if not self.allowed_docker_image(docker_image):
+                    return -1
         for key in self.REQUIRED_TRANSFORMER_PINS:
-            if key not in transformation:
+            missed = True
+            if isinstance(key, tuple):
+                keylist = key
+            else:
+                keylist = (key,)
+            for key in keylist:
+                if key in transformation:
+                    missed = False
+                    break
+            if missed:
                 return -1
         if not "code" in transformation:
             return -1
@@ -62,14 +93,24 @@ class FileTransformerPluginBase(TransformerPlugin):
 
     def prepare_transformation(self, checksum, transformation):
         tdict = {"__checksum__": checksum.hex()}
+        if "__env__" in transformation:
+            env_buf = self.database_client.get_buffer(transformation["__env__"])
+            env = json.loads(env_buf)
+            tdict["__env__"] = env
+        required_transformer_pins = []
+        for key in self.REQUIRED_TRANSFORMER_PINS:
+            if isinstance(key, str):
+                required_transformer_pins.append(key)
+            else:
+                required_transformer_pins += list(key)
         for pin in transformation:
-            if pin in ("__output__", "code"):
+            if pin == "code" or (pin.startswith("__") and pin.endswith("__")):
                 continue
             celltype, subcelltype, pin_checksum = transformation[pin]
             json_value_only = False
             skip, json_buffer, write_env  = None, None, None
 
-            if pin in self.REQUIRED_TRANSFORMER_PINS:
+            if pin in required_transformer_pins:
                 skip, json_value_only, json_buffer, write_env = self.required_pin_handler(pin, transformation)
             elif celltype == "mixed":
                 skip = False
@@ -101,7 +142,7 @@ class FileTransformerPluginBase(TransformerPlugin):
               (write_env is None or write_env == True) or json_value_only:
                 pin_buf = self.database_client.get_buffer(pin_checksum)
                 if pin_buf is None:
-                    raise CacheMissError
+                    raise CacheMissError(pin_checksum)
                 if write_env is None:
                     if len(pin_buf) <= 1000:
                         write_env = True
@@ -181,7 +222,7 @@ def is_json(data):
 
 def write_files(prepared_transformation, env, support_symlinks):
     for pin in prepared_transformation:
-        if pin == "__checksum__":
+        if pin in ("__checksum__", "__env__"):
             continue
         filename, value, env_value = prepared_transformation[pin]
         pinfile = "./" + pin

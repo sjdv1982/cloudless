@@ -35,7 +35,7 @@ class SlurmBackend(Backend):
 
         prepared_transformation = prepared_transformation.copy()
         for key in prepared_transformation:
-            if key == "__checksum__":
+            if key in ("__checksum__", "__env__"):
                 continue
             filename, value, env_value = prepared_transformation[key]
             if filename is None:
@@ -241,10 +241,12 @@ class SlurmSingularityBackend(SlurmBackend):
     USE_HOST_ENVIRONMENT = False
 
     def get_code(self, transformation, prepared_transformation):
-        return prepared_transformation["docker_command"][1]
+        return prepared_transformation["bashcode"][1]
 
     def submit_job(self, jobname, slurm_extra_header, env, code, prepared_transformation):
-        docker_image = prepared_transformation["docker_image"][1]
+        docker_command, docker_image = get_docker_command_and_image(
+            prepared_transformation
+        )
         with open("CODE.bash", "w") as f:
             f.write(code + "\n")
         os.chmod("CODE.bash", 0o755)
@@ -262,3 +264,5 @@ class SlurmSingularityBackend(SlurmBackend):
             jobname, slurm_extra_header, env, singularity_command,
             use_host_environment=self.USE_HOST_ENVIRONMENT
         )
+
+from .shell_backend import get_docker_command_and_image
