@@ -176,7 +176,7 @@ async def await_job(jobname, identifier, code, tftype, tempdir, polling_interval
             result = parse_resultfile(resultfile)
     finally:
         os.chdir(old_cwd)
-        ###shutil.rmtree(tempdir, ignore_errors=True) ###
+        shutil.rmtree(tempdir, ignore_errors=True) ###
 
     error_msg = None
     if exit_code > 0:
@@ -241,10 +241,13 @@ class SlurmSingularityBackend(SlurmBackend):
     USE_HOST_ENVIRONMENT = False
 
     def get_code(self, transformation, prepared_transformation):
-        return prepared_transformation["bashcode"][1]
+        docker_command, _ = get_docker_command_and_image(
+            prepared_transformation
+        )
+        return docker_command
 
     def submit_job(self, jobname, slurm_extra_header, env, code, prepared_transformation):
-        docker_command, docker_image = get_docker_command_and_image(
+        _, docker_image = get_docker_command_and_image(
             prepared_transformation
         )
         with open("CODE.bash", "w") as f:
