@@ -3,7 +3,7 @@
 mkdir -p /tmp/seamless-database
 
 set -u
-#SEAMLESS_IMG=/scratch/software/singularity/images # RPBS cluster
+#SEAMLESS_IMG=/scratch/software/singularity/images/... # RPBS cluster
 
 singularity exec ${SEAMLESS_IMG} \
   python3 -u /seamless-tools/database.py \

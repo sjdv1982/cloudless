@@ -386,16 +386,6 @@ if __name__ == "__main__":
 
     asyncio.get_event_loop().run_until_complete(jobless_server.start())
 
-    flatfile_rewriters = []
-    for d in config["flatfile_rewriters"]:
-        flatfile_rewriters.append((
-            d["mounted"],
-            d["external"]
-        ))
-    if len(flatfile_rewriters) > 1: raise NotImplementedError
-
-    rewriter = flatfile_rewriters[0] if len(flatfile_rewriters) else None
-
     from concurrent.futures import ThreadPoolExecutor
     executor = ThreadPoolExecutor()
 
@@ -415,8 +405,7 @@ if __name__ == "__main__":
         jobhandler_class = jobhandler_classes[key]
         jh = jobhandler_class(
             database_client,
-            executor=executor,
-            rewriter=rewriter
+            executor=executor
         )
         jh.JOB_TEMPDIR = jobhandler.get("job_tempdir")
         if backend == "slurm":

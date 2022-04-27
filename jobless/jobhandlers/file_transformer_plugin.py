@@ -17,10 +17,6 @@ from . import TransformerPlugin, CacheMissError
 
 class FileTransformerPluginBase(TransformerPlugin):
 
-    def __init__(self, *args, rewriter=None, **kwargs):
-        self.rewriter = rewriter
-        super().__init__(*args, **kwargs)
-
     REQUIRED_TRANSFORMER_PINS = []  # to be defined in subclass
     TRANSFORMER_CODE_CHECKSUMS = []  # to be defined in subclass
 
@@ -194,11 +190,6 @@ class FileTransformerPluginBase(TransformerPlugin):
                     if pin_buf is None:
                         raise CacheMissError
                     value = pin_buf
-                elif self.rewriter is not None:
-                    pre, post = self.rewriter
-                    if filename.startswith(pre):
-                        tail = filename[len(pre):]
-                        filename = post + tail
             tdict[pin] = filename, value, env_value
         return tdict
 

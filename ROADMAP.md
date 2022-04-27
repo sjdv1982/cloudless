@@ -6,10 +6,10 @@ graphID maps to:
   - template ctx.seamless + delta checksum dict,
     PLUS:
   - template status.seamless + delta checksum dict
-  Templates are registered under service name (which also can import their .zip into Redis). Only admins can update templates (to update a service, or to update current graphs)
+  Templates are registered under service name. Only admins can update templates (to update a service, or to update current graphs)
 Internally, cloudless keeps graphID-to-Docker container mapping;
   - ports 5813, 5138 are mapped to ephemeral ports
-  - Docker container is killed if there is no traffic for too long
+  - DONE: Docker container is killed if there is no traffic for too long
   - Docker container is killed and re-launched if the graphID has its template changed. This should change index.html into something that asks for a refresh every few seconds (snooping connection should say this!)
   - new Docker container is launched if graphID receives traffic again
   - Docker containers are thin, all work is done in jobslave containers,

@@ -16,12 +16,14 @@
 
   1. You need to setup a database.yaml, see `/cloudless/jobless/tests/database-minimal.yaml` for an example.
   2. Define a Seamless database startup command.
-     For an example script that uses Singularity, see `/cloudless/jobless/tests/start-seamless-database`. You need to adapt it by defining where it can find the Seamless Singularity image (.simg file).
+     You can start the Seamless database using the built-in Docker command,
+      using `seamless-database my-database-config.yaml`
+     
+     Alternatively, you can write a custom startup script
+     For an example startup script that uses Singularity, see `/cloudless/jobless/tests/start-seamless-database`. You need to adapt it by defining where it can find the Seamless Singularity image (.simg file).
 
      Building the Seamless Singularity image can be done as described in  `https://github.com/sjdv1982/seamless#alternative-installations`
 
-     Alternatively, the Seamless database can be started directly using Docker, by copying and adapting `seamless-database`.
-     Note that within a Docker container, the database files are by default visible as `/data`. Jobless (see next section) will then require a flatfile adapter to be defined in its .yaml file.
   3. Start the Seamless database. For the rest of the guide, it is assumed to be always running.
 
 ### How to delete your database
