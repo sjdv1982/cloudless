@@ -28,6 +28,6 @@ docker run --rm \
   -u jovyan \
   rpbs/seamless ipython3 -i /home/jovyan/seamless-scripts/serve-graph.py -- \
     --interactive \
-    $f --redis --ncores 0 \
+    $f --ncores 0 \
     --communion_id $name \
     $@

@@ -1,7 +1,5 @@
 set -u -e
 
-#  - For now, direct Redis access is assumed, via the Redis port 6379
-#    NOTE: THIS IS A BIG SECURITY HOLE, IT ALLOWS CORRUPTION AND SNOOPING OF THE DATABASE
 #  - The share server listens on 0.0.0.0, because I can't find out
 #      how Docker Bridge rewrites the IP address origin
 #    NOTE: THIS IS A BIG SECURITY HOLE IF YOUR EPHEMERAL PORTS ARE VISIBLE TO THE OUTSIDE

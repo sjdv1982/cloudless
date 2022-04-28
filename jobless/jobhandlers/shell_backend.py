@@ -120,8 +120,7 @@ def get_docker_command_and_image(prepared_transformation):
         if isinstance(docker_command, bytes):
             docker_command = docker_command.decode()
     if "docker_image_" in prepared_transformation:
-        docker_image = prepared_transformation["docker_image_"][1].decode()
-        docker_image = json.loads(docker_image)
+        docker_image = prepared_transformation["docker_image_"][1]
         if isinstance(docker_image, bytes):
             docker_image = docker_image.decode()
     else:

@@ -28,5 +28,5 @@ docker run --rm \
   -u jovyan \
  rpbs/seamless ipython3 -i /home/jovyan/seamless-scripts/serve-graph.py -- \
     --interactive \
-    $f --redis \
+    $f \
     $@

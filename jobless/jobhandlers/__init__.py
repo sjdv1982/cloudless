@@ -1,7 +1,7 @@
 """
 A jobhandler consists of two parts:
 - A TransformerPlugin. Currently, there is FileTransformerPluginBase, that is specialized into
-  BashTransformerPlugin and DockerTransformerPlugin
+  BashTransformerPlugin and BashDockerTransformerPlugin
 - A Backend. Currently, there is ShellBashBackend, ShellDockerBackend and SlurmBackend for file transformers.
 
 Jobs are submitted by checksum. There is also a job status API, which can return
@@ -110,7 +110,8 @@ class Backend:
             )
             self.database_client.set_buffer(
                 result_checksum,
-                result
+                result,
+                False
             )
             self.results[checksum] = result_checksum.hex()
         except Exception as exc:
@@ -148,6 +149,6 @@ class JoblessRemoteError(Exception):
     pass
 
 from .bash_transformer_plugin import BashTransformerPlugin
-from .docker_transformer_plugin import DockerTransformerPlugin
+from .bashdocker_transformer_plugin import BashDockerTransformerPlugin
 from .shell_backend import ShellBashBackend, ShellDockerBackend
 from .slurm_backend import SlurmBashBackend, SlurmSingularityBackend

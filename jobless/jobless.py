@@ -33,7 +33,7 @@ import os, sys, asyncio, time, functools, json, traceback, base64, websockets
 master_config = {
     "buffer": False,
     "buffer_status": False,
-    "buffer_length": False,
+    "buffer_info": False,
     "transformation_job": False,
     "transformation_status": False,
     "semantic_to_syntactic": False,
@@ -42,7 +42,7 @@ master_config = {
 servant_config = {
     "buffer": False,
     "buffer_status": False,
-    "buffer_length": False,
+    "buffer_info": False,
     "transformation_job": True,
     "transformation_status": True,
     "semantic_to_syntactic": False,
@@ -69,7 +69,7 @@ Jobs are submitted by checksum. There is also a job status API, which can return
 
 class JoblessServer:
     future = None
-    PROTOCOL = ("seamless", "communion", "0.2.1")
+    PROTOCOL = ("seamless", "communion", "0.3")
     TRANSFORMATION_INDEPENDENT_AGE = 60   # after this time, jobs continue even if all submitting peers get canceled
     _started = False
     def __init__(self, address, port, communion_id):
@@ -335,7 +335,7 @@ class JoblessServer:
         return await self._process_request_from_peer(peer, message)
 
 from jobhandlers import (
-    BashTransformerPlugin, DockerTransformerPlugin,
+    BashTransformerPlugin, BashDockerTransformerPlugin,
     ShellBashBackend, ShellDockerBackend,
     SlurmBashBackend, SlurmSingularityBackend,
 )
@@ -343,13 +343,13 @@ from jobhandlers import (
 class ShellBashJobHandler(BashTransformerPlugin, ShellBashBackend):
     pass
 
-class ShellDockerJobHandler(DockerTransformerPlugin, ShellDockerBackend):
+class ShellDockerJobHandler(BashDockerTransformerPlugin, ShellDockerBackend):
     pass
 
 class SlurmBashJobHandler(BashTransformerPlugin, SlurmBashBackend):
     pass
 
-class SlurmSingularityDockerJobHandler(DockerTransformerPlugin, SlurmSingularityBackend):
+class SlurmSingularityDockerJobHandler(BashDockerTransformerPlugin, SlurmSingularityBackend):
     pass
 
 jobhandler_classes = {

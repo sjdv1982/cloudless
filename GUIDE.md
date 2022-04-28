@@ -3,7 +3,7 @@
 # A. First installation steps
 
 ## Installation of the Cloudless master
-
+`
 - Install Seamless (`docker pull rpbs/seamless && conda install -c rpbs seamless-cli`)
 
 - Install Cloudless requirements with `pip install -r requirements.txt`.
@@ -28,14 +28,7 @@
 
 ### How to delete your database
 
-Deletion has to be done for each backend separately.
-
-If your DB has a flatfile backend:
-    `cd <DB_DIRECTORY>`, then:
-    `rm *-* -f`
-
-If your DB has a Redis backend:
-    Flush Redis DB: `docker exec seamless-redis-container redis-cli flushall`
+The database needs to be stopped. After that, the directory can be simply deleted.
 
 ## Setting up Jobless
 
@@ -46,6 +39,7 @@ Launch jobless with `python3 /cloudless/jobless/jobless.py jobless-config.yaml`
 
 ### Testing Jobless
 
+- Start jobless
 - Delete the database (see above)
 - Make sure that the Docker images "ubuntu", "rpbs/seamless" and "rpbs/autodock" are available
   as Docker or Singularity images in the place where the jobs will be run.
@@ -193,24 +187,6 @@ Then `curl -v $nodeIP:8888`
 This should print the same as for the previous test.
 
 
-### Test if Redis on the master is reachable from the node, with Docker host networking:
-
-This test is only necessary if:
-1. the database has a Redis backend,
-2. a database adapter runs on each node.
-
-- On the master, populate Redis with the Seamless default graph for status monitoring:
-
-    `seamless python3 /home/jovyan/seamless-scripts/add-zip.py /home/jovyan/software/seamless/graphs/status-visualization.zip`
-
-- On the node, do:
-    - `seamless-bash -e masterIP`
-    - `ping $masterIP`
-    - `redis-cli -h $masterIP`
-    - type `keys *` and you will see some entries starting with "buf:" and "bfl:".
-    - `exit` (redis-cli)
-    - `exit` (Docker container)
-
 ### Test master-to-node Seamless-to-Seamless communion, with Docker host networking.
 - On the node, do:
     - `seamless-bash -e masterIP`
@@ -237,32 +213,6 @@ If is instead `Local computation has been disabled for this Seamless instance`, 
 ### Switching from host networking to bridge networking
 
 For both the master and the node, make sure that the bridge network can reach the main network. See [this link](https://docs.docker.com/network/bridge/#enable-forwarding-from-docker-containers-to-the-outside-world). Test it with the command: `docker run --rm rpbs/seamless bash -c 'ping www.google.fr'`
-
-### Test if Redis on the master is reachable from the node, with Docker bridge networking
-
-This test is only necessary if:
-1. the database has a Redis backend,
-2. a database adapter runs on each node.
-
-- On the master, populate Redis with the Seamless default graph for status monitoring:
-
-    `seamless python3 /home/jovyan/seamless-scripts/add-zip.py /home/jovyan/software/seamless/graphs/status-visualization.zip`
-
-- On the node, do:
-    ```bash
-    docker run --rm \
-    -it \
-    -e "SEAMLESS_DATABASE_HOST="$masterIP \
-    -u `id -u` \
-    --group-add users \
-    rpbs/seamless \
-    start.sh
-    ```
-- `ping $SEAMLESS_DATABASE_HOST`
-- `redis-cli -h $SEAMLESS_DATABASE_HOST`
-- type `keys *` and you will see some entries starting with "buf:" and "bfl:".
-- `exit` (redis-cli)
-- `exit` (Docker container)
 
 ### Test master-to-node Seamless-to-Seamless communion, with Docker bridge networking.
 
@@ -350,7 +300,7 @@ On each node:
 
 - $CLOUDLESS_JOBSLAVES must be defined
 
-- Stopping Cloudless kills both the jobslave and the graph serving containers. A future version of Cloudless will monitor the graphs and store them in Redis, so that the graph serving containers can be reconstituted at will.
+- Stopping Cloudless kills both the jobslave and the graph serving containers. Cloudless monitors the graphs and stores them, so that the graph serving containers can be reconstituted at will.
 
 # D. Cloudless testing
 
