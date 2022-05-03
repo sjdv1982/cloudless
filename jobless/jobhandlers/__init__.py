@@ -2,7 +2,7 @@
 A jobhandler consists of two parts:
 - A TransformerPlugin. Currently, there is FileTransformerPluginBase, that is specialized into
   BashTransformerPlugin and BashDockerTransformerPlugin
-- A Backend. Currently, there is ShellBashBackend, ShellDockerBackend and SlurmBackend for file transformers.
+- A Backend. Currently, there is ShellBashBackend, ShellBashDockerBackend and SlurmBackend for file transformers.
 
 Jobs are submitted by checksum. There is also a job status API, which can return
     a code and a return value. The return value depends on the code:
@@ -150,5 +150,5 @@ class JoblessRemoteError(Exception):
 
 from .bash_transformer_plugin import BashTransformerPlugin
 from .bashdocker_transformer_plugin import BashDockerTransformerPlugin
-from .shell_backend import ShellBashBackend, ShellDockerBackend
+from .shell_backend import ShellBashBackend, ShellBashDockerBackend
 from .slurm_backend import SlurmBashBackend, SlurmSingularityBackend

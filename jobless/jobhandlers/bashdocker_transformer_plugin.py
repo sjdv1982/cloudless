@@ -14,7 +14,7 @@ class BashDockerTransformerPlugin(FileTransformerPluginBase):
 
         'c2c1a13ba4a68004eaeb9b5300473c1b39ebfc6dff922ad1893fe67b9668c80d', # Seamless 0.7
         '1cee47f07959d9a4899599a4ad230d3cd11058ab130666001d10d8fe8fbd842f', # Seamless 0.7 in rpbs/seamless
-        'e9c3ff6ded8770cfc898160578049df82efcc3d7be3c41899cd826fc95631de5', # Seamless 0.8
+        'bdbeaaa209a9ee303c03efb280e66684a68093c1b9f925fa3b7e0114cbe87591', # Seamless 0.8
         '59e918e039a9b8a584ce9ba90b78941a8024ff9ff98db1133d67112974b0659f', # Seamless 0.8 bash transformer
     ]
 

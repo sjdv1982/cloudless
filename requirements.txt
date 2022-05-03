@@ -1,7 +1,6 @@
 aiohttp==3.*
 websockets==8.1.*
 ruamel.yaml==0.16.*
-ruamel.yaml.clib==0.2.*
-numpy==1.17.*
+numpy>=1.17.*
 psutil==5.7.*
 docker==3.7.*

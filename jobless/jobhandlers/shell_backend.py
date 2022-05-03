@@ -252,10 +252,12 @@ def execute_docker(docker_command, docker_image, tempdir, env, resultfile):
     options["environment"] = env
     with open("DOCKER-COMMAND","w") as f:
         bash_header = """set -u -e
+        trap 'chmod -R 777 /run' EXIT
 """ # don't add "trap 'jobs -p | xargs -r kill' EXIT" as it gives serious problems
 
         f.write(bash_header)
         f.write(docker_command)
+        f.write("\nchmod -R 777 /run")
     full_docker_command = "bash DOCKER-COMMAND"
     try:
         try:
@@ -378,16 +380,31 @@ Error: Result file RESULT does not exist
 
 
 def parse_resultfile(resultfile):
-    try:
-        tar = tarfile.open(resultfile)
+    if os.path.isdir(resultfile):
+        result0 = {}
+        for dirpath, _, filenames in os.walk(resultfile):
+            for filename in filenames:
+                full_filename = os.path.join(dirpath, filename)
+                assert full_filename.startswith(resultfile + "/")
+                member = full_filename[len(resultfile) + 1:]
+                data = open(full_filename, "rb").read()
+                rdata = read_data(data)
+                result0[member] = rdata
         result = {}
-        for member in tar.getnames():
-            data = tar.extractfile(member).read()
-            result[member] = read_data(data)
-    except (ValueError, tarfile.CompressionError, tarfile.ReadError):
-        with open(resultfile, "rb") as f:
-            resultdata = f.read()
-        result = read_data(resultdata)
+        for k in sorted(result0.keys()):
+            result[k] = result0[k]
+            del result0[k]
+    else:
+        try:
+            tar = tarfile.open(resultfile)
+            result = {}
+            for member in tar.getnames():
+                data = tar.extractfile(member).read()
+                result[member] = read_data(data)
+        except (ValueError, tarfile.CompressionError, tarfile.ReadError):
+            with open(resultfile, "rb") as f:
+                resultdata = f.read()
+            result = read_data(resultdata)
     return serialize(result)
 
 
@@ -405,7 +422,7 @@ class ShellBashBackend(ShellBackend):
         except SeamlessTransformationError as exc:
             raise exc from None
 
-class ShellDockerBackend(ShellBackend):
+class ShellBashDockerBackend(ShellBackend):
     support_symlinks = False
 
     def __init__(self, *args, **kwargs):

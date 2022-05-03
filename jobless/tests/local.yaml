@@ -9,7 +9,7 @@ communion_id: jobless
 
 jobhandlers:
 -
-  ## docker or bash
+  ## bash or bashdocker
   type: bash
 
   ## shell or slurm
@@ -18,10 +18,23 @@ jobhandlers:
   ## where to execute job files. null => system temp dir
   job_tempdir: null
 
+  ## The filezones where the jobs are being run, in relation to the Seamless database
+  ## "the jobs are being run" means "where jobless is being run" for backend=shell
+  ## For backend=slurm, it means "the file systems mounted on your SLURM cluster",
+  ##  which may or may not be accessible to the Seamless database.
+  ##
+  ## The Seamless database with default configuration has a single store with filezone "local".
+  ## If jobless runs on the same filesystem as the Seamless DB store, you should specify
+  ##  the same filezone. This allows files for bash/bashdocker to be softlinked 
+  ##  directly, rather than its buffer loaded into Seamless DB, sent over HTTP,
+  ##  and written to a new file
+  filezones: ["local"]
+
 -
-  type: docker
+  type: bashdocker
   backend: shell
   job_tempdir: null
+  filezones: ["local"]
 
   ## only for backend=slurm
   ## extra header to pre-pend to the submitted bash script

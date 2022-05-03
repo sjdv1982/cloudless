@@ -200,19 +200,21 @@ class DatabaseClient:
         if response is not None:
             return BufferInfo(checksum, response.json())
 
-    def get_filename(self, checksum):
+    def get_filename(self, checksum, filezones):
         request = {
             "type": "filename",
             "checksum": parse_checksum(checksum),
+            "filezones": filezones,
         }
         response = self.send_request(request)
         if response is not None:
             return response.text
 
-    def get_directory(self, checksum):
+    def get_directory(self, checksum, filezones):
         request = {
             "type": "directory",
             "checksum": parse_checksum(checksum),
+            "filezones": filezones,
         }
         response = self.send_request(request)
         if response is not None:

@@ -10,6 +10,7 @@ Probably keep the current code as the proper semantics, and adapt Seamless pin i
 import json
 import os
 import shutil
+import copy
 
 from . import TransformerPlugin, CacheMissError
 
@@ -17,6 +18,10 @@ class FileTransformerPluginBase(TransformerPlugin):
 
     REQUIRED_TRANSFORMER_PINS = []  # to be defined in subclass
     TRANSFORMER_CODE_CHECKSUMS = []  # to be defined in subclass
+
+    def __init__(self, *args, filezones, **kwargs):
+        self.filezones = copy.deepcopy(filezones)
+        super().__init__(*args, **kwargs)
 
     def allowed_docker_image(self, docker_image):
         return False
@@ -135,6 +140,9 @@ class FileTransformerPluginBase(TransformerPlugin):
             value = None
             pin_buf = None
             pin_buf_info = -1
+            can_use_filename = False
+            if celltype in ("text", "bytes", "binary"):
+                can_use_filename = True
 
             if write_env is None:
                 pin_buf_len = None
@@ -144,7 +152,8 @@ class FileTransformerPluginBase(TransformerPlugin):
                     pin_buf_len = pin_buf_info.length
                 if pin_buf_len is not None:
                     if pin_buf_len <= 1000:
-                        write_env = True
+                        if pin_buf_info.is_utf8 != False:
+                            write_env = True
                     else:
                         write_env = False
             
@@ -154,6 +163,8 @@ class FileTransformerPluginBase(TransformerPlugin):
                     pin_buf_info = self.database_client.get_buffer_info(pin_checksum)
                 if pin_buf_info is not None:
                     json_buffer = pin_buf_info.is_json
+                    if pin_buf_info.is_numpy:
+                        can_use_filename = True
 
             if json_buffer is None or write_env is None or json_value_only:
                 pin_buf = self.database_client.get_buffer(pin_checksum)
@@ -167,21 +178,34 @@ class FileTransformerPluginBase(TransformerPlugin):
                 if json_buffer is None:
                     assert celltype == "mixed"
                     json_buffer = is_json(pin_buf)
+                    if not json_buffer:
+                        if pin_buf.startswith(MAGIC_NUMPY):
+                            can_use_filename = True
+
             
 
-            filename = None
+            filename = None            
             if not json_value_only:
-                fs  = transformation.get("__format__", {}).get(pin, {}).get("filesystem") 
+                fs = transformation.get("__format__", {}).get(pin, {}).get("filesystem") 
                 if fs is not None:
                     # optional = fs["optional"]  # ignore this. for mode=file, always optional. for mode=directory, never optional.
                     mode = fs["mode"]
                     if mode == "file":
-                        filename = self.database_client.get_filename(pin_checksum)                        
-                    else: # mode == "directory"                    
-                        filename = self.database_client.get_directory(pin_checksum)
+                        can_use_filename = True
+                    if mode == "directory":
+                        filename = self.database_client.get_directory(
+                            pin_checksum,
+                            filezones=self.filezones
+                        )
                         if filename is None:
                             raise CacheMissError(pin_checksum)
-                if filename is None:
+                if filename is None and can_use_filename:
+                    filename = self.database_client.get_filename(
+                        pin_checksum,
+                        filezones=self.filezones
+                    )                        
+                        
+                if filename is None or write_env:
                     if pin_buf is None:
                         pin_buf = self.database_client.get_buffer(pin_checksum)
                     if pin_buf is None:
@@ -208,8 +232,13 @@ class FileTransformerPluginBase(TransformerPlugin):
             env_value = None
             if write_env:
                 if value is None:
-                    assert json_buffer
-                    env_value = json.loads(pin_buf.decode())
+                    if json_buffer:
+                        env_value = json.loads(pin_buf.decode())
+                    else:
+                        try:
+                            env_value = pin_buf.decode()
+                        except Exception:
+                            env_value = None
                     if isinstance(env_value, (list, dict)):
                         env_value = None
                 elif isinstance(value, (list, dict)):

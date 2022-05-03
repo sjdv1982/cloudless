@@ -32,7 +32,7 @@ ctx.compute()
 print(ctx.result.value)
 print(ctx.tf.status)
 print(ctx.tf.exception)
-ctx.code = "head -3 testdata > firstdata; tar hczf RESULT testdata firstdata"
+ctx.code = "head -3 testdata > firstdata; mkdir RESULT; cp testdata firstdata RESULT"
 ctx.compute()
 print(ctx.result.value)
 ctx.tf.docker_image = "rpbs/seamless"
@@ -44,7 +44,8 @@ print(ctx.tf.exception)
 ctx.code = """
 python3 -c 'import numpy as np; np.save(\"test\",np.arange(12)*3)'
 echo 'hello' > test.txt
-tar hczf RESULT test.npy test.txt
+mkdir RESULT
+cp test.npy test.txt RESULT
 """
 ctx.result = ctx.tf
 ctx.result.celltype = "structured"

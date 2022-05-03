@@ -11,7 +11,7 @@ class BashTransformerPlugin(FileTransformerPluginBase):
         '54a3024fde08ac6526e31651730068482d61fb9d2cebb7a0bd18d455e7bbbeb6', # Seamless 0.6-devel
         '3eb91d8f14b22be1823cc54b4c888f00e1ad214bbda25bdc8de64b47051a499a', # Seamless 0.6
         '1cee47f07959d9a4899599a4ad230d3cd11058ab130666001d10d8fe8fbd842f', # Seamless 0.7
-        '59e918e039a9b8a584ce9ba90b78941a8024ff9ff98db1133d67112974b0659f', # Seamless 0.8
+        'bdbeaaa209a9ee303c03efb280e66684a68093c1b9f925fa3b7e0114cbe87591', # Seamless 0.8
     ]
     def required_pin_handler(self, pin, transformation):
         assert pin in self.REQUIRED_TRANSFORMER_PINS

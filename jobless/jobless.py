@@ -147,7 +147,6 @@ class JoblessServer:
         }
         import websockets
 
-        coros = []
         if is_port_in_use(self.address, self.port): # KLUDGE
             print("ERROR: port %d already in use" % self.port)
             raise Exception
@@ -336,14 +335,14 @@ class JoblessServer:
 
 from jobhandlers import (
     BashTransformerPlugin, BashDockerTransformerPlugin,
-    ShellBashBackend, ShellDockerBackend,
+    ShellBashBackend, ShellBashDockerBackend,
     SlurmBashBackend, SlurmSingularityBackend,
 )
 
 class ShellBashJobHandler(BashTransformerPlugin, ShellBashBackend):
     pass
 
-class ShellDockerJobHandler(BashDockerTransformerPlugin, ShellDockerBackend):
+class ShellBashDockerJobHandler(BashDockerTransformerPlugin, ShellBashDockerBackend):
     pass
 
 class SlurmBashJobHandler(BashTransformerPlugin, SlurmBashBackend):
@@ -357,11 +356,11 @@ jobhandler_classes = {
 
     ("bash", "shell", None): ShellBashJobHandler,
 
-    ("docker", "shell", None): ShellDockerJobHandler,
+    ("bashdocker", "shell", None): ShellBashDockerJobHandler,
 
     ("bash", "slurm", None): SlurmBashJobHandler,
 
-    ("docker", "slurm", "singularity"): SlurmSingularityDockerJobHandler,
+    ("bashdocker", "slurm", "singularity"): SlurmSingularityDockerJobHandler,
 }
 
 if __name__ == "__main__":
@@ -403,10 +402,18 @@ if __name__ == "__main__":
             )
             sys.exit(1)
         jobhandler_class = jobhandler_classes[key]
-        jh = jobhandler_class(
-            database_client,
-            executor=executor
-        )
+        if jtype in ("bash", "bashdocker"):
+            filezones = jobhandler["filezones"]
+            jh = jobhandler_class(
+                database_client,
+                executor=executor,
+                filezones=filezones
+            )
+        else:
+            jh = jobhandler_class(
+                database_client,
+                executor=executor
+            )
         jh.JOB_TEMPDIR = jobhandler.get("job_tempdir")
         if backend == "slurm":
             jh.SLURM_EXTRA_HEADER = jobhandler.get("slurm_extra_header")
