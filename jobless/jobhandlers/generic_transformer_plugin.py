@@ -10,7 +10,7 @@ import asyncio
 import subprocess
 import tempfile
 
-from . import TransformerPlugin
+from . import TransformerPlugin, SeamlessTransformationError
 
 class GenericTransformerPlugin(TransformerPlugin):
     CONDA_ENV_MODIFY_COMMAND = "seamless-conda-env-modify"
@@ -94,11 +94,47 @@ class GenericTransformerPlugin(TransformerPlugin):
             os.system("cp -r {} {}".format(self.exported_conda_env_directory, d))
             
             if conda_env is not None:
-                with tempfile.NamedTemporaryFile() as f:
+                with tempfile.NamedTemporaryFile(suffix=".yml") as f:
                     f.write(conda_buf.encode())
-                    f.close()
+                    f.flush()
                     cmd = [self.CONDA_ENV_MODIFY_COMMAND, d, f.name]
-                    subprocess.run(cmd, shell=True)
+                    cmd2 = " ".join(cmd)
+                    try:
+                        subprocess.run(cmd2, shell=True)
+                    except subprocess.CalledProcessError as exc:
+                        stdout = exc.stdout
+                        try:
+                            stdout = stdout.decode()
+                        except:
+                            pass
+                        stderr = exc.stderr
+                        try:
+                            stderr = stderr.decode()
+                        except:
+                            pass
+                        raise SeamlessTransformationError("""
+Generic transformer error
+==========================
+
+*************************************************
+* Command
+*************************************************
+{}
+*************************************************
+
+*************************************************
+* Standard output
+*************************************************
+{}
+*************************************************
+
+*************************************************
+* Standard error
+*************************************************
+{}
+*************************************************
+""".format(cmd2, stdout, stderr)) from None
+
         self.conda_env_last_used[conda_env] = time.time()
         self.conda_env_to_transformations[conda_env] = []
 

@@ -1,3 +1,5 @@
+from hashlib import sha3_256
+
 def calculate_checksum(content, hex=False):
     if isinstance(content, str):
         content = content.encode()

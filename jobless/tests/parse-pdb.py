@@ -1,0 +1,39 @@
+import os
+os.environ["SEAMLESS_COMMUNION_ID"] = "seamless"
+os.environ["SEAMLESS_COMMUNION_INCOMING"] = "localhost:5533"
+from seamless.highlevel import Context
+
+import seamless
+seamless.set_ncores(0)
+from seamless import communion_server
+
+communion_server.configure_master(
+    transformation_job=True,
+    transformation_status=True,
+)
+
+seamless.database_sink.connect()
+seamless.database_cache.connect()
+
+def count_atoms(pdbdata):
+    from Bio.PDB import PDBParser
+    parser = PDBParser()
+    from io import StringIO
+    d = StringIO(pdbdata)
+    struc = parser.get_structure("pdb", d)
+    return len(list(struc.get_atoms()))
+
+ctx = Context()
+ctx.pdbdata = open("1crn.pdb").read()
+ctx.count_atoms = count_atoms
+ctx.count_atoms.pdbdata = ctx.pdbdata
+ctx.count_atoms.pins.pdbdata.celltype = "text"
+ctx.count_atoms.environment.set_conda(
+    open("parse-pdb-environment.yml").read(),
+    "yaml"
+)
+ctx.compute()
+print(ctx.count_atoms.get_transformation())
+print(ctx.count_atoms.status)
+print(ctx.count_atoms.exception)
+print(ctx.count_atoms.result.value)
