@@ -27,7 +27,7 @@ ctx.tf.lines = 3
 ctx.tf.code = ctx.code
 ctx.result = ctx.tf
 ctx.result.celltype = "mixed"
-ctx.translate(force=True)
+ctx.translate()
 ctx.compute()
 print(ctx.result.value)
 print(ctx.tf.status)

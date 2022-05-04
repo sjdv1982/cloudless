@@ -71,38 +71,12 @@ class ShellBackend(Backend):
             if filename is None:
                 continue
             prepared_transformation[key] = os.path.abspath(os.path.expanduser(filename)), value, env_value
+        return launch(
+            checksum, transformation, prepared_transformation, 
+            self._run, self.coros, self.executor
+        )
 
-        def func(queue):
-            try:
-                result = self._run(checksum, transformation, prepared_transformation)
-                queue.put((False, result))
-            except Exception as exc:
-                tb = traceback.format_exc()
-                queue.put((True, (exc, tb)))
 
-        def func2():
-            try:
-                with mp.Manager() as manager:
-                    queue = manager.Queue()
-                    p = mp.Process(target=func, args=(queue,))
-                    p.start()
-                    p.join()
-                    has_error, payload = queue.get()
-                    if has_error:
-                        exc, tb = payload
-                        if isinstance(exc, SeamlessTransformationError):
-                            raise exc
-                        else:
-                            raise JoblessRemoteError(exc, tb)
-                    else:
-                        result = payload
-                        return result
-            finally:
-                self.coros.pop(checksum, None)
-
-        coro = asyncio.get_event_loop().run_in_executor(self.executor, func2)
-        self.coros[checksum] = asyncio.ensure_future(coro)
-        return coro, None
 
 
     def cancel_job(self, checksum, identifier):
@@ -111,6 +85,39 @@ class ShellBackend(Backend):
             task = asyncio.ensure_future(coro)
             task.cancel()
 
+
+def launch(checksum, transformation, prepared_transformation, runner, coros, executor):
+    def func(queue):
+        try:
+            result = runner(checksum, transformation, prepared_transformation)
+            queue.put((False, result))
+        except Exception as exc:
+            tb = traceback.format_exc()
+            queue.put((True, (exc, tb)))
+
+    def func2():
+        try:
+            with mp.Manager() as manager:
+                queue = manager.Queue()
+                p = mp.Process(target=func, args=(queue,))
+                p.start()
+                p.join()
+                has_error, payload = queue.get()
+                if has_error:
+                    exc, tb = payload
+                    if isinstance(exc, SeamlessTransformationError):
+                        raise exc
+                    else:
+                        raise JoblessRemoteError(exc, tb)
+                else:
+                    result = payload
+                    return result
+        finally:
+            coros.pop(checksum, None)
+
+    coro = asyncio.get_event_loop().run_in_executor(executor, func2)
+    coros[checksum] = asyncio.ensure_future(coro)
+    return coro, None
 
 def get_docker_command_and_image(prepared_transformation):
     if "bashcode" in prepared_transformation:

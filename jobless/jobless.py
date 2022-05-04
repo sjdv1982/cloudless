@@ -334,9 +334,9 @@ class JoblessServer:
         return await self._process_request_from_peer(peer, message)
 
 from jobhandlers import (
-    BashTransformerPlugin, BashDockerTransformerPlugin,
-    ShellBashBackend, ShellBashDockerBackend,
-    SlurmBashBackend, SlurmSingularityBackend,
+    BashTransformerPlugin, BashDockerTransformerPlugin, GenericTransformerPlugin,
+    GenericBackend, GenericSingularityBackend, ShellBashBackend, ShellBashDockerBackend,
+    SlurmBashBackend, SlurmSingularityBackend
 )
 
 class ShellBashJobHandler(BashTransformerPlugin, ShellBashBackend):
@@ -351,6 +351,17 @@ class SlurmBashJobHandler(BashTransformerPlugin, SlurmBashBackend):
 class SlurmSingularityDockerJobHandler(BashDockerTransformerPlugin, SlurmSingularityBackend):
     pass
 
+class GenericJobHandler(GenericTransformerPlugin, GenericBackend):
+    def __init__(self, *args, **kwargs):
+        GenericTransformerPlugin.__init__(self, *args, **kwargs)
+        GenericBackend.__init__(self, *args, **kwargs)
+
+class GenericSingularityJobHandler(GenericTransformerPlugin, GenericSingularityBackend):
+    pass
+
+class SlurmGenericSingularityJobHandler(GenericTransformerPlugin, SlurmSingularityBackend):
+    pass
+
 jobhandler_classes = {
     # mapping of (type, backend, sub_backend) to jobhandler class
 
@@ -361,6 +372,13 @@ jobhandler_classes = {
     ("bash", "slurm", None): SlurmBashJobHandler,
 
     ("bashdocker", "slurm", "singularity"): SlurmSingularityDockerJobHandler,
+
+    ("generic", "shell", None): GenericJobHandler,
+
+    ("generic", "shell", "singularity"): GenericSingularityJobHandler,
+
+    ("generic", "slurm", "singularity"): SlurmGenericSingularityJobHandler,
+
 }
 
 if __name__ == "__main__":
@@ -409,6 +427,20 @@ if __name__ == "__main__":
                 executor=executor,
                 filezones=filezones
             )
+        elif jtype == "generic":
+            filezones = jobhandler["filezones"]
+            exported_conda_env_directory = jobhandler["exported_conda_env_directory"]
+            temp_conda_env_directory = jobhandler["temp_conda_env_directory"]
+            temp_conda_env_lifetime = jobhandler["temp_conda_env_lifetime"]
+            jh = jobhandler_class(
+                database_client,
+                executor=executor,
+                filezones=filezones,
+                exported_conda_env_directory=exported_conda_env_directory,
+                temp_conda_env_directory=temp_conda_env_directory,
+                temp_conda_env_lifetime=temp_conda_env_lifetime
+            )
+
         else:
             jh = jobhandler_class(
                 database_client,

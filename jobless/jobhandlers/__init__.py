@@ -22,6 +22,12 @@ import traceback
 from functools import partial
 from hashlib import sha3_256
 
+from .util import parse_checksum
+
+class Checksum:
+    def __init__(self, value):
+        self.value = value
+
 class TransformerPlugin:
     def can_accept_transformation(self, checksum, transformation):
         # To be implemented by backend.
@@ -33,7 +39,7 @@ class TransformerPlugin:
 
 class Backend:
 
-    def __init__(self, database_client):
+    def __init__(self,  database_client, *args, **kwargs):
         self.database_client = database_client
         self.transformations = {}
         self.identifiers = {}
@@ -100,18 +106,30 @@ class Backend:
         except:
             return
         if result is None:
-            return
+            return        
         try:
-            hash = sha3_256(result)
-            result_checksum = hash.digest()
+            if isinstance(result, Checksum):
+                result_checksum = result.value
+                result_checksum = parse_checksum(result_checksum, as_bytes=True)
+                if result_checksum is None:
+                    return
+                result_buffer = self.database_client.get_buffer(
+                    result_checksum
+                )
+                if result_buffer is None:
+                    raise CacheMissError
+            else:
+                result_buffer = result
+                hash = sha3_256(result_buffer)
+                result_checksum = hash.digest()
+                self.database_client.set_buffer(
+                    result_checksum,
+                    result,
+                    False
+                )
             self.database_client.set_transformation_result(
                 checksum,
                 result_checksum
-            )
-            self.database_client.set_buffer(
-                result_checksum,
-                result,
-                False
             )
             self.results[checksum] = result_checksum.hex()
         except Exception as exc:
@@ -151,4 +169,6 @@ class JoblessRemoteError(Exception):
 from .bash_transformer_plugin import BashTransformerPlugin
 from .bashdocker_transformer_plugin import BashDockerTransformerPlugin
 from .shell_backend import ShellBashBackend, ShellBashDockerBackend
-from .slurm_backend import SlurmBashBackend, SlurmSingularityBackend
+from .slurm_backend import SlurmBashBackend, SlurmSingularityBackend, SlurmGenericSingularityBackend
+from .generic_transformer_plugin import GenericTransformerPlugin
+from .generic_backend import GenericBackend, GenericSingularityBackend

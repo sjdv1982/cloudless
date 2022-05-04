@@ -237,7 +237,7 @@ class SlurmBashBackend(SlurmBackend):
 
 class SlurmSingularityBackend(SlurmBackend):
     support_symlinks = False
-    TF_TYPE = "Docker"
+    TF_TYPE = "BashDocker"
     USE_HOST_ENVIRONMENT = False
 
     def get_code(self, transformation, prepared_transformation):
@@ -267,5 +267,11 @@ class SlurmSingularityBackend(SlurmBackend):
             jobname, slurm_extra_header, env, singularity_command,
             use_host_environment=self.USE_HOST_ENVIRONMENT
         )
+
+class SlurmGenericSingularityBackend(SlurmBackend):
+    support_symlinks = True
+    TF_TYPE = "Generic"
+    USE_HOST_ENVIRONMENT = True
+    # TODO: finish
 
 from .shell_backend import get_docker_command_and_image
