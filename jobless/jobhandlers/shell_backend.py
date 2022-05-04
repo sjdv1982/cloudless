@@ -124,7 +124,7 @@ def get_docker_command_and_image(prepared_transformation):
         if isinstance(docker_image, bytes):
             docker_image = docker_image.decode()
     else:
-        docker_image = prepared_transformation["__env__"]["docker"]["name"]
+        docker_image = prepared_transformation.get("__env__", {}).get("docker", {}).get("name")
     return docker_command, docker_image
 
 def read_data(data):

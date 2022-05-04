@@ -70,6 +70,9 @@ class FileTransformerPluginBase(TransformerPlugin):
             if docker_image is not None:
                 if not self.allowed_docker_image(docker_image):
                     return False
+            if len(env.get("conda", [])):
+                return False
+
         for key in self.REQUIRED_TRANSFORMER_PINS:
             missed = True
             if isinstance(key, tuple):
