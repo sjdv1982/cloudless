@@ -194,7 +194,7 @@ This should print the same as for the previous test.
     - `seamless-bash -e masterIP`
     - `set -u -e`
     - `export SEAMLESS_DATABASE_IP=$masterIP`
-    - `export SEAMLESS_COMMUNION_OUTGOING_ADDRESS=0.0.0.0`
+    - `export SEAMLESS_COMMUNION_OUTGOING_IP=0.0.0.0`
     - `python3 ~/seamless-scripts/jobslave.py --communion_id JOBSLAVE --communion_outgoing 6543`
 - On the master, do:
     - Delete the DB

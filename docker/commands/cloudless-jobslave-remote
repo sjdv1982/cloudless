@@ -16,7 +16,7 @@ docker run \
   --detach \
   --name $name \
   -e "SEAMLESS_DATABASE_IP="$database_host \
-  -e SEAMLESS_COMMUNION_OUTGOING_ADDRESS=0.0.0.0 \
+  -e SEAMLESS_COMMUNION_OUTGOING_IP=0.0.0.0 \
   --expose 8602 \
   -P \
   -v /tmp:/tmp \
