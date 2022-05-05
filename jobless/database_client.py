@@ -17,22 +17,18 @@ class DatabaseClient:
     active = False
     PROTOCOL = ("seamless", "database", "0.1")
 
-    def _get_host_port(self, host, port):
+    def _get_host_port(self):
+        env = os.environ
+        host = env.get("SEAMLESS_DATABASE_IP")
         if host is None:
-            env = os.environ
-            host = env.get("SEAMLESS_DATABASE_IP")
-            if host is None:
-                raise ValueError("environment variable SEAMLESS_DATABASE_IP not defined")
+            raise ValueError("environment variable SEAMLESS_DATABASE_IP not defined")
+        port = env.get("SEAMLESS_DATABASE_PORT")
         if port is None:
-            port = env.get("SEAMLESS_DATABASE_PORT")
-            if port is None:
-                raise ValueError("environment variable SEAMLESS_DATABASE_PORT not defined")
-            try:
-                port = int(port)
-            except Exception:
-                raise TypeError("environment variable SEAMLESS_DATABASE_PORT must be integer") from None
-        elif not isinstance(port, int):
-            raise TypeError("port must be integer")
+            raise ValueError("environment variable SEAMLESS_DATABASE_PORT not defined")
+        try:
+            port = int(port)
+        except Exception:
+            raise TypeError("environment variable SEAMLESS_DATABASE_PORT must be integer") from None
         return host, port
 
     def _connect(self, host, port):
@@ -49,8 +45,8 @@ class DatabaseClient:
             raise Exception("Incorrect Seamless database protocol") from None
         self.active = True
 
-    def connect(self, *, host=None,port=None):
-        host, port = self._get_host_port(host, port)
+    def connect(self):
+        host, port = self._get_host_port()
         self._connect(host, port)
 
     def has_buffer(self, checksum):
