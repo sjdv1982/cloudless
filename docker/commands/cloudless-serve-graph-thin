@@ -11,7 +11,7 @@ import json, sys
 bridge = json.load(sys.stdin)
 print(bridge[0]["IPAM"]["Config"][0]["Gateway"])
 ''')
-: ${SEAMLESS_DATABASE_HOST:=$bridge_ip}
+: ${SEAMLESS_DATABASE_IP:=$bridge_ip}
 
 name=$1
 f=$2
@@ -20,7 +20,7 @@ communion_incoming=${SEAMLESS_COMMUNION_INCOMING}
 c=$(docker run \
   --detach \
   --name $name \
-  -e "SEAMLESS_DATABASE_HOST="$SEAMLESS_DATABASE_HOST \
+  -e "SEAMLESS_DATABASE_IP="$SEAMLESS_DATABASE_IP \
   -e "SHARESERVER_ADDRESS=0.0.0.0" \
   -e "SEAMLESS_COMMUNION_ID="$name \
   -e "SEAMLESS_COMMUNION_INCOMING="$communion_incoming \

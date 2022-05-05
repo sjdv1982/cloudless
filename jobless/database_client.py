@@ -3,7 +3,7 @@
 import requests
 import json
 from hashlib import sha3_256
-
+import os
 
 from util import calculate_checksum, parse_checksum, BufferInfo
 
@@ -16,6 +16,25 @@ BUFFER_EMPTY_DICT = b'{}\n'
 class DatabaseClient:
     active = False
     PROTOCOL = ("seamless", "database", "0.1")
+
+    def _get_host_port(self, host, port):
+        if host is None:
+            env = os.environ
+            host = env.get("SEAMLESS_DATABASE_IP")
+            if host is None:
+                raise ValueError("environment variable SEAMLESS_DATABASE_IP not defined")
+        if port is None:
+            port = env.get("SEAMLESS_DATABASE_PORT")
+            if port is None:
+                raise ValueError("environment variable SEAMLESS_DATABASE_PORT not defined")
+            try:
+                port = int(port)
+            except Exception:
+                raise TypeError("environment variable SEAMLESS_DATABASE_PORT must be integer") from None
+        elif not isinstance(port, int):
+            raise TypeError("port must be integer")
+        return host, port
+
     def _connect(self, host, port):
         self.host = host
         self.port = port
@@ -30,7 +49,8 @@ class DatabaseClient:
             raise Exception("Incorrect Seamless database protocol") from None
         self.active = True
 
-    def connect(self, *, host='localhost',port=5522):
+    def connect(self, *, host=None,port=None):
+        host, port = self._get_host_port(host, port)
         self._connect(host, port)
 
     def has_buffer(self, checksum):

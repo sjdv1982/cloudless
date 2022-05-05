@@ -15,7 +15,7 @@ shift 2
 docker run --rm \
   -it \
   --name $name \
-  -e "SEAMLESS_DATABASE_HOST="$bridge_ip \
+  -e "SEAMLESS_DATABASE_IP="$bridge_ip \
   -e "SHARESERVER_ADDRESS=0.0.0.0" \
   --expose 5813 \
   --expose 5138 \

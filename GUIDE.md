@@ -1,5 +1,7 @@
 # Installation guide
 
+TODO: make SEAMLESS_DATABASE_IP configurable (argument for cloudless-serve-graph-XXX like in cloudless-jobslave-remote)
+
 # A. First installation steps
 
 ## Installation of the Cloudless master
@@ -133,7 +135,7 @@ are "fat", i.e. they do all the work either themselves or delegate it to jobless
     -  Run the following:
         ```bash
         docker run --rm \
-        -e "SEAMLESS_DATABASE_HOST="$bridge_ip \
+        -e "SEAMLESS_DATABASE_IP="$bridge_ip \
         -e "SEAMLESS_COMMUNION_INCOMING="$bridge_ip:$port \
         -u `id -u` \
         --group-add users \
@@ -191,7 +193,7 @@ This should print the same as for the previous test.
 - On the node, do:
     - `seamless-bash -e masterIP`
     - `set -u -e`
-    - `export SEAMLESS_DATABASE_HOST=$masterIP`
+    - `export SEAMLESS_DATABASE_IP=$masterIP`
     - `export SEAMLESS_COMMUNION_OUTGOING_ADDRESS=0.0.0.0`
     - `python3 ~/seamless-scripts/jobslave.py --communion_id JOBSLAVE --communion_outgoing 6543`
 - On the master, do:
@@ -240,7 +242,7 @@ For both the master and the node, make sure that the bridge network can reach th
     -  Run the following:
         ```bash
         docker run --rm \
-        -e "SEAMLESS_DATABASE_HOST="$bridge_ip \
+        -e "SEAMLESS_DATABASE_IP="$bridge_ip \
         -e "SEAMLESS_COMMUNION_INCOMING="$nodeIP:$port \
         -v `pwd`:/cwd \
         --workdir /cwd \

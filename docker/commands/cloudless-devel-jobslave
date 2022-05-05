@@ -24,7 +24,7 @@ docker run \
   --name $name \
   -v $seamlessdir:/seamless \
   -e "PYTHONPATH=/seamless" \
-  -e "SEAMLESS_DATABASE_HOST="$bridge_ip \
+  -e "SEAMLESS_DATABASE_IP="$bridge_ip \
   -e SEAMLESS_COMMUNION_OUTGOING_ADDRESS=0.0.0.0 \
   --expose 8602 \
   -P \

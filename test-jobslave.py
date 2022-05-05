@@ -9,7 +9,7 @@ seamless.set_ncores(0)
 from seamless import communion_server
 
 params = {}
-db_host = os.environ.get("SEAMLESS_DATABASE_HOST")
+db_host = os.environ.get("SEAMLESS_DATABASE_IP")
 if db_host is not None:
     params["host"] = db_host
 db_port = os.environ.get("SEAMLESS_DATABASE_PORT")
