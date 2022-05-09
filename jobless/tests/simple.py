@@ -14,6 +14,7 @@ communion_server.configure_master(
 
 seamless.database_sink.connect()
 seamless.database_cache.connect()
+communion_server.start()
 
 ctx = Context()
 ctx.a = 10
@@ -30,7 +31,9 @@ ctx.compute()
 print(ctx.result.value)
 print(ctx.tf.status)
 print(ctx.tf.exception)
+print(ctx.tf.get_transformation())
 
+'''
 ctx.tf.meta = {"duration" : "short"}
 ctx.translate()
 ctx.tf.clear_exception()
@@ -39,3 +42,4 @@ ctx.compute()
 print(ctx.result.value)
 print(ctx.tf.status)
 print(ctx.tf.exception)
+'''

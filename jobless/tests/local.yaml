@@ -9,7 +9,7 @@ communion_id: jobless
 
 jobhandlers:
 -
-  ## bash or bashdocker
+  ## bash, bashdocker or generic
   type: bash
 
   ## shell or slurm

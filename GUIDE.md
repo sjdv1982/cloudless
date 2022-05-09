@@ -1,32 +1,31 @@
 # Installation guide
 
-TODO: make SEAMLESS_DATABASE_IP configurable (argument for cloudless-serve-graph-XXX like in cloudless-jobslave-remote)
+TODO: make SEAMLESS_DATABASE_IP configurable (argument for cloudless-serve-graph-XXX like in cloudless-jobslave-remote). !!!Add a second value for seamless-conda-env-run-transformation !!!
 
 # A. First installation steps
 
 ## Installation of the Cloudless master
-`
-- Install Seamless (`docker pull rpbs/seamless && conda install -c rpbs seamless-cli`)
+- Pull the Seamless Docker images (`docker pull rpbs/seamless; docker pull rpbs/seamless-minimal`). The standard Docker image is for seamless-database. 
+The minimal Docker image is for Jobless "generic" jobhandlers with sub_backend = "docker"
+
+
+- Create a new Python environment with seamless-cli and silk  in it:
+`conda create -n cloudless -c rpbs -c conda-forge python seamless-cli silk && conda activate cloudless`
+
+- 
 
 - Install Cloudless requirements with `pip install -r requirements.txt`.
 
 - Install silk (`conda install -c rpbs silk`, or from https://github.com/sjdv1982/silk)
 
+- If you want to use Jobless "generic" jobhandlers with sub_backend = "singularity", 
+...
+
 - Define $CLOUDLESSDIR in your .bashrc
 
 ## Setup of the database adapter
 
-  1. You need to setup a database.yaml, see `/cloudless/jobless/tests/database-minimal.yaml` for an example.
-  2. Define a Seamless database startup command.
-     You can start the Seamless database using the built-in Docker command,
-      using `seamless-database my-database-config.yaml`
-     
-     Alternatively, you can write a custom startup script
-     For an example startup script that uses Singularity, see `/cloudless/jobless/tests/start-seamless-database`. You need to adapt it by defining where it can find the Seamless Singularity image (.simg file).
-
-     Building the Seamless Singularity image can be done as described in  `https://github.com/sjdv1982/seamless#alternative-installations`
-
-  3. Start the Seamless database. For the rest of the guide, it is assumed to be always running.
+    Start the Seamless database. For the rest of the guide, it is assumed to be always running. You can do this with `seamless-database` on the same or a different machine.
 
 ### How to delete your database
 

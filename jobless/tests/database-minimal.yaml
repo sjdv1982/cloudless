@@ -1,8 +1,0 @@
-host: 0.0.0.0  # can be omitted, default is 0.0.0.0 (all IPs are accepted)
-port:  5522  # can be omitted, default is 5522
-stores: 
-    -
-      path: /tmp/seamless-database      
-      readonly: false
-      serve_filenames: true
-

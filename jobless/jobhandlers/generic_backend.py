@@ -5,7 +5,7 @@ from .shell_backend import launch
 import time
 from functools import partial
 import subprocess
-import sys
+import sys, os
 
 class GenericBackend(Backend):
 
@@ -16,12 +16,15 @@ class GenericBackend(Backend):
 
     CONDA_ENV_RUN_TRANSFORMATION_COMMAND = "seamless-conda-env-run-transformation"
 
+    def prepare_run_transformation_env(self, env):
+        env.pop("SEAMLESS_DATABASE_IP")
+
     def get_job_status(self, checksum, identifier):
         return 2, None, None
 
     def _run(self, checksum, transformation, prepared_transformation):    
         checksum = parse_checksum(checksum)
-        cmd = [self.CONDA_ENV_RUN_TRANSFORMATION_COMMAND]        
+        cmd = [self.CONDA_ENV_RUN_TRANSFORMATION_COMMAND]
         d = prepared_transformation["temp_conda_env_dir"]
         cmd.append(d)
         cmd.append(checksum)
@@ -33,8 +36,10 @@ class GenericBackend(Backend):
         print("Running generic job for {}".format(checksum), file=sys.stderr)
         try:
             cmd2 = " ".join(cmd)
+            env = os.environ.copy()            
+            self.prepare_run_transformation_env(env)
             process = subprocess.run(
-                cmd2, shell=True, check=True, capture_output=True
+                cmd2, shell=True, check=True, capture_output=True, env=env
             )
         except subprocess.CalledProcessError as exc:
             stdout = exc.stdout
@@ -93,8 +98,11 @@ Generic transformer error
         future.add_done_callback(partial(self.transformation_finished2, checksum))
 
 
-class GenericSingularityBackend(Backend):
-    pass
+class GenericSingularityBackend(GenericBackend):
+    SINGULARITY_IMAGE_FILE = None # to be defined by jobless
+    
+    def prepare_run_transformation_env(self, env):
+        env["SEAMLESS_MINIMAL_SINGULARITY_IMAGE"] = self.SINGULARITY_IMAGE_FILE
 
 
 from . import Checksum

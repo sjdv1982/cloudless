@@ -357,7 +357,9 @@ class GenericJobHandler(GenericTransformerPlugin, GenericBackend):
         GenericBackend.__init__(self, *args, **kwargs)
 
 class GenericSingularityJobHandler(GenericTransformerPlugin, GenericSingularityBackend):
-    pass
+    def __init__(self, *args, **kwargs):
+        GenericTransformerPlugin.__init__(self, *args, **kwargs)
+        GenericSingularityBackend.__init__(self, *args, **kwargs)
 
 class SlurmGenericSingularityJobHandler(GenericTransformerPlugin, SlurmSingularityBackend):
     pass
@@ -447,13 +449,25 @@ if __name__ == "__main__":
                 executor=executor
             )
         jh.JOB_TEMPDIR = jobhandler.get("job_tempdir")
-        if backend == "slurm":
+        if backend == "shell":
+            if jtype == "generic":
+                if sub_backend == "singularity":
+                    jh.SINGULARITY_IMAGE_FILE = jobhandler["singularity_image_file"]
+                    jh.CONDA_ENV_RUN_TRANSFORMATION_COMMAND = jobhandler["singularity_run_transformation_command"]
+                    jh.CONDA_ENV_MODIFY_COMMAND = jobhandler["singularity_env_modify_command"]
+
+        elif backend == "slurm":
             jh.SLURM_EXTRA_HEADER = jobhandler.get("slurm_extra_header")
             jh.STATUS_POLLING_INTERVAL = jobhandler["status_polling_interval"]
 
-        if sub_backend == "singularity":
-            jh.SINGULARITY_IMAGE_DIR = jobhandler["singularity_image_dir"]
-            jh.SINGULARITY_EXEC = jobhandler["singularity_exec"]
+            if jtype == "bashdocker":
+                if sub_backend == "singularity":
+                    jh.SINGULARITY_IMAGE_DIR = jobhandler["singularity_image_dir"]
+                    jh.SINGULARITY_EXEC = jobhandler["singularity_exec"]
+            
+            elif jtype == "generic":
+                if sub_backend == "singularity":
+                    raise NotImplementedError
 
         jobhandlers.append(jh)
 

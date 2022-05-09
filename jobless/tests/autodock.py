@@ -15,6 +15,7 @@ communion_server.configure_master(
 
 seamless.database_sink.connect()
 seamless.database_cache.connect()
+communion_server.start()
 
 ctx = Context()
 ctx.mol22pdb = Transformer()
