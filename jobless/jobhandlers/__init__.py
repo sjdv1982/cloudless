@@ -170,5 +170,5 @@ from .bash_transformer_plugin import BashTransformerPlugin
 from .bashdocker_transformer_plugin import BashDockerTransformerPlugin
 from .shell_backend import ShellBashBackend, ShellBashDockerBackend
 from .slurm_backend import SlurmBashBackend, SlurmSingularityBackend, SlurmGenericSingularityBackend
-from .generic_transformer_plugin import GenericTransformerPlugin
+from .generic_transformer_plugin import GenericTransformerPlugin, GenericSingularityTransformerPlugin
 from .generic_backend import GenericBackend, GenericSingularityBackend

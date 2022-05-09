@@ -38,6 +38,7 @@ class GenericBackend(Backend):
             cmd2 = " ".join(cmd)
             env = os.environ.copy()            
             self.prepare_run_transformation_env(env)
+            print("run transformation command:", cmd2)
             process = subprocess.run(
                 cmd2, shell=True, check=True, capture_output=True, env=env
             )

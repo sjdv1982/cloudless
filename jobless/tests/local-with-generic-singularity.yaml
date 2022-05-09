@@ -64,8 +64,8 @@ jobhandlers:
 
   sub_backend: singularity
   singularity_image_file: /home/sjoerd/seamless-minimal.sif
-  singularity_env_modify_command: /home/sjoerd/seamless/docker/seamless-minimal/singularity/seamless-conda-env-modify
-  singularity_run_transformation_command: /home/sjoerd/seamless/docker/seamless-minimal/singularity/seamless-conda-env-run-transformation
+  singularity_env_modify_command: /home/sjoerd/data/seamless/docker/seamless-minimal/singularity/seamless-conda-env-modify
+  singularity_run_transformation_command: /home/sjoerd/data/seamless/docker/seamless-minimal/singularity/seamless-conda-env-run-transformation
 
 
   ## only for backend=slurm

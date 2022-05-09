@@ -335,6 +335,7 @@ class JoblessServer:
 
 from jobhandlers import (
     BashTransformerPlugin, BashDockerTransformerPlugin, GenericTransformerPlugin,
+    GenericSingularityTransformerPlugin, 
     GenericBackend, GenericSingularityBackend, ShellBashBackend, ShellBashDockerBackend,
     SlurmBashBackend, SlurmSingularityBackend
 )
@@ -356,9 +357,9 @@ class GenericJobHandler(GenericTransformerPlugin, GenericBackend):
         GenericTransformerPlugin.__init__(self, *args, **kwargs)
         GenericBackend.__init__(self, *args, **kwargs)
 
-class GenericSingularityJobHandler(GenericTransformerPlugin, GenericSingularityBackend):
+class GenericSingularityJobHandler(GenericSingularityTransformerPlugin, GenericSingularityBackend):
     def __init__(self, *args, **kwargs):
-        GenericTransformerPlugin.__init__(self, *args, **kwargs)
+        GenericSingularityTransformerPlugin.__init__(self, *args, **kwargs)
         GenericSingularityBackend.__init__(self, *args, **kwargs)
 
 class SlurmGenericSingularityJobHandler(GenericTransformerPlugin, SlurmSingularityBackend):

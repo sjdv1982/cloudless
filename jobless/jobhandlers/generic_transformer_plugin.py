@@ -15,6 +15,9 @@ from . import TransformerPlugin, SeamlessTransformationError
 class GenericTransformerPlugin(TransformerPlugin):
     CONDA_ENV_MODIFY_COMMAND = "seamless-conda-env-modify"
 
+    def prepare_conda_env_modify_env(self, env):
+        pass
+
     def allowed_docker_image(self, docker_image):
         return False
 
@@ -97,10 +100,13 @@ class GenericTransformerPlugin(TransformerPlugin):
                 with tempfile.NamedTemporaryFile(suffix=".yml") as f:
                     f.write(conda_buf.encode())
                     f.flush()
+                    env = os.environ.copy()            
+                    self.prepare_conda_env_modify_env(env)
                     cmd = [self.CONDA_ENV_MODIFY_COMMAND, d, f.name]
-                    cmd2 = " ".join(cmd)
+                    cmd2 = " ".join(cmd)     
+                    print("conda env modify command:", cmd2)               
                     try:
-                        subprocess.run(cmd2, shell=True)
+                        subprocess.run(cmd2, shell=True, env=env)
                     except subprocess.CalledProcessError as exc:
                         stdout = exc.stdout
                         try:
@@ -162,5 +168,12 @@ Generic transformer error
         conda_env = self.transformation_to_conda_env.pop(checksum)
         self.conda_env_to_transformations[conda_env].remove(checksum)
         self.conda_env_last_used[conda_env] = time.time()
+
+
+class GenericSingularityTransformerPlugin(GenericTransformerPlugin):
+    def prepare_conda_env_modify_env(self, env):
+        env["SEAMLESS_MINIMAL_SINGULARITY_IMAGE"] = self.SINGULARITY_IMAGE_FILE
+
+
 
 from util import calculate_checksum, parse_checksum        
