@@ -40,33 +40,4 @@ jobhandlers:
   job_tempdir: null
   filezones: ["local"]
 
-  ## only for backend=slurm
-  ## extra header to pre-pend to the submitted bash script
-  ##  (after SBATCH -o, SBATCH -e and SBATCH --export=ALL)
-
-  # slurm_extra_header: null
-
-
-  ## only for backend=slurm
-  ## how often to poll slurm (squeue -j) for job status
-
-  # status_polling_interval: 2.0
-
-
-  ## only for type=bashdocker. Use Singularity to execute.
-  ## For now, only supported for backend=slurm
-
-  # sub_backend: singularity
-
-
-  ## only for sub_backend=singularity
-  ## where are the images stored.
-  ## e.g. Docker image 'rpbs/seamless'
-  ##  must correspond to image file $singularity_image_dir/rpbs/seamless.sif
-
-  # singularity_image_dir: /mnt/singularity
-
-  ## only for sub_backend=singularity
-  ## Command to execute a Singularity image
-
-  # singularity_exec: 'singularity exec'
+  
