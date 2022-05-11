@@ -1,4 +1,6 @@
 # Adapted from the Seamless source code
+# However, ip and port are specified in .connect
+#   and not read from os.environ[SEAMLESS_DATABASE_IP/PORT]
 
 import requests
 import json
@@ -17,20 +19,6 @@ class DatabaseClient:
     active = False
     PROTOCOL = ("seamless", "database", "0.1")
 
-    def _get_host_port(self):
-        env = os.environ
-        host = env.get("SEAMLESS_DATABASE_IP")
-        if host is None:
-            raise ValueError("environment variable SEAMLESS_DATABASE_IP not defined")
-        port = env.get("SEAMLESS_DATABASE_PORT")
-        if port is None:
-            raise ValueError("environment variable SEAMLESS_DATABASE_PORT not defined")
-        try:
-            port = int(port)
-        except Exception:
-            raise TypeError("environment variable SEAMLESS_DATABASE_PORT must be integer") from None
-        return host, port
-
     def _connect(self, host, port):
         self.host = host
         self.port = port
@@ -45,8 +33,8 @@ class DatabaseClient:
             raise Exception("Incorrect Seamless database protocol") from None
         self.active = True
 
-    def connect(self):
-        host, port = self._get_host_port()
+    def connect(self, host, port: int):
+        port = int(port)
         self._connect(host, port)
 
     def has_buffer(self, checksum):

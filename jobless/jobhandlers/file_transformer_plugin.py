@@ -272,6 +272,8 @@ def is_json(data):
         return True
 
 def write_files(prepared_transformation, env, support_symlinks):
+    if prepared_transformation.get("__generic__"):
+        return
     for pin in prepared_transformation:
         if pin in ("__checksum__", "__env__"):
             continue

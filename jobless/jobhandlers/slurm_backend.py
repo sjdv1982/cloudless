@@ -15,11 +15,16 @@ class SlurmBackend(Backend):
     STATUS_POLLING_INTERVAL = 2.0   # TODO: conf file
     SLURM_EXTRA_HEADER = None # TODO: conf file
     JOB_TEMPDIR = None
+    RESULT_FILENAME = "RESULT"  # set to None to read no result file
+
     def __init__(self, *args, executor, **kwargs):
         self.executor = executor
         self.coros = {}
         self.jobs = set()
         super().__init__(*args, **kwargs)
+
+    def prepare_slurm_env(self, env):
+        pass
 
     def get_job_status(self, checksum, identifier):
         # TODO: invoke squeue in real time (will be a few sec more up-to-date)
@@ -34,14 +39,14 @@ class SlurmBackend(Backend):
         from .file_transformer_plugin import write_files
 
         prepared_transformation = prepared_transformation.copy()
-        for key in prepared_transformation:
-            if key in ("__checksum__", "__env__"):
-                continue
-            filename, value, env_value = prepared_transformation[key]
-            if filename is None:
-                continue
-            prepared_transformation[key] = os.path.abspath(os.path.expanduser(filename)), value, env_value
-
+        if not prepared_transformation.get("__generic__"):
+            for key in prepared_transformation:
+                if key in ("__checksum__", "__env__"):
+                    continue
+                filename, value, env_value = prepared_transformation[key]
+                if filename is None:
+                    continue
+                prepared_transformation[key] = os.path.abspath(os.path.expanduser(filename)), value, env_value
 
         jobname = "seamless-" + checksum.hex()
         code = self.get_code(transformation, prepared_transformation)
@@ -68,7 +73,11 @@ class SlurmBackend(Backend):
             os.chdir(old_cwd)
 
         if jobid is not None:
-            coro = await_job(jobname, jobid, code, self.TF_TYPE, tempdir, self.STATUS_POLLING_INTERVAL, "RESULT")
+            coro = self.await_job(
+                checksum,
+                jobname, jobid, code, self.TF_TYPE, tempdir, 
+                self.STATUS_POLLING_INTERVAL
+            )
             self.jobs.add(jobid)
 
         coro = asyncio.ensure_future(coro)
@@ -78,6 +87,9 @@ class SlurmBackend(Backend):
     def submit_job(self, jobname, slurm_extra_header, env, code, prepared_transformation):
         """To be implemented by subclass"""
         raise NotImplementedError
+
+    async def await_job(self, checksum, jobname, identifier, code, tftype, tempdir, polling_interval):
+        return await await_job(jobname, identifier, code, tftype, tempdir, polling_interval, "RESULT")
 
     def cancel_job(self, checksum, identifier):
         jobid = identifier
@@ -172,16 +184,16 @@ async def await_job(jobname, identifier, code, tftype, tempdir, polling_interval
             stderr = stderr.decode()
         except Exception:
             pass
-        if exit_code == 0 and os.path.exists(resultfile):
+        if exit_code == 0 and resultfile is not None and os.path.exists(resultfile):
             result = parse_resultfile(resultfile)
     finally:
         os.chdir(old_cwd)
-        shutil.rmtree(tempdir, ignore_errors=True) ###
+        shutil.rmtree(tempdir, ignore_errors=True)
 
     error_msg = None
     if exit_code > 0:
         error_msg = "Error: Non-zero exit code {}".format(exit_code)
-    elif result is None:
+    elif result is None and resultfile is not None:
         error_msg = "Error: Result file {} does not exist".format(resultfile)
 
     if error_msg is None:
@@ -228,6 +240,7 @@ class SlurmBashBackend(SlurmBackend):
         return prepared_transformation["bashcode"][1]
 
     def submit_job(self, jobname, slurm_extra_header, env, code, prepared_transformation):
+        self.prepare_slurm_env(env)
         msg = "Submit slurm bash job {}"
         print(msg.format(jobname), file=sys.stderr)
         return submit_job(
@@ -246,32 +259,81 @@ class SlurmSingularityBackend(SlurmBackend):
         )
         return docker_command
 
-    def submit_job(self, jobname, slurm_extra_header, env, code, prepared_transformation):
+    def get_singularity_command(self, env, code, prepared_transformation):
         _, docker_image = get_docker_command_and_image(
             prepared_transformation
         )
         with open("CODE.bash", "w") as f:
             f.write(code + "\n")
         os.chmod("CODE.bash", 0o755)
-        simg = "{}/{}.simg".format(
+        sif = "{}/{}.sif".format(
             self.SINGULARITY_IMAGE_DIR,
             docker_image
         )
         singularity_command = "{} {} ./CODE.bash".format(
             self.SINGULARITY_EXEC,
-            simg
+            sif
         )
-        msg = "Submit slurm singularity job {}, image {}"
-        print(msg.format(jobname, simg), file=sys.stderr)
+        msg = "Submit slurm singularity job {{}}, image {}"
+        message = msg.format(sif)
+        return singularity_command, message
+
+    def submit_job(self, jobname, slurm_extra_header, env, code, prepared_transformation):
+        singularity_command, message = self.get_singularity_command(env, code, prepared_transformation)
+        self.prepare_slurm_env(env)
+        print(message.format(jobname), file=sys.stderr)
         return submit_job(
             jobname, slurm_extra_header, env, singularity_command,
             use_host_environment=self.USE_HOST_ENVIRONMENT
         )
 
-class SlurmGenericSingularityBackend(SlurmBackend):
+class SlurmGenericSingularityBackend(SlurmSingularityBackend):
     support_symlinks = True
     TF_TYPE = "Generic"
     USE_HOST_ENVIRONMENT = True
-    # TODO: finish
+    SINGULARITY_IMAGE_FILE = None # to be defined by jobless
+    
+    def prepare_slurm_env(self, env):
+        env["SEAMLESS_MINIMAL_SINGULARITY_IMAGE"] = self.SINGULARITY_IMAGE_FILE
+
+    def get_code(self, transformation, prepared_transformation):
+        cmd = [            
+            self.CONDA_ENV_RUN_TRANSFORMATION_COMMAND,
+        ]
+        d = prepared_transformation["temp_conda_env_dir"]
+        checksum = prepared_transformation["__checksum__"]
+        cmd.append(d)
+        cmd.append(checksum)
+        filezones = prepared_transformation["filezones"]
+        if filezones is not None:
+            for filezone in filezones:
+                cmd.append("--filezone")
+                cmd.append(filezone)
+
+        code = " ".join(cmd)
+        return code
+
+    async def await_job(self, checksum, jobname, identifier, code, tftype, tempdir, polling_interval):
+        await await_job(jobname, identifier, code, tftype, tempdir, polling_interval, resultfile=None)
+        result_checksum = self.database_client.get_transformation_result(checksum)
+        if result_checksum is not None:
+            return Checksum(result_checksum)
+
+
+    def get_singularity_command(self, env, code, prepared_transformation):
+
+        with open("CODE.bash", "w") as f:
+            f.write(code + "\n")
+        os.system("chmod 775 CODE.bash")
+
+        # in fact, all singulary invocation is now inside CODE.bash
+        singularity_command = "./CODE.bash"
+        
+        checksum = prepared_transformation["__checksum__"]
+        msg = "Submit slurm generic singularity job {{}}, checksum {}"
+        message = msg.format(checksum)
+        return singularity_command, message
+
 
 from .shell_backend import get_docker_command_and_image
+from . import Checksum

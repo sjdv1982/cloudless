@@ -337,7 +337,7 @@ from jobhandlers import (
     BashTransformerPlugin, BashDockerTransformerPlugin, GenericTransformerPlugin,
     GenericSingularityTransformerPlugin, 
     GenericBackend, GenericSingularityBackend, ShellBashBackend, ShellBashDockerBackend,
-    SlurmBashBackend, SlurmSingularityBackend
+    SlurmBashBackend, SlurmSingularityBackend, SlurmGenericSingularityBackend
 )
 
 class ShellBashJobHandler(BashTransformerPlugin, ShellBashBackend):
@@ -362,8 +362,10 @@ class GenericSingularityJobHandler(GenericSingularityTransformerPlugin, GenericS
         GenericSingularityTransformerPlugin.__init__(self, *args, **kwargs)
         GenericSingularityBackend.__init__(self, *args, **kwargs)
 
-class SlurmGenericSingularityJobHandler(GenericTransformerPlugin, SlurmSingularityBackend):
-    pass
+class SlurmGenericSingularityJobHandler(GenericSingularityTransformerPlugin, SlurmGenericSingularityBackend):
+    def __init__(self, *args, **kwargs):
+        GenericSingularityTransformerPlugin.__init__(self, *args, **kwargs)
+        SlurmGenericSingularityBackend.__init__(self, *args, **kwargs)
 
 jobhandler_classes = {
     # mapping of (type, backend, sub_backend) to jobhandler class
@@ -393,7 +395,9 @@ if __name__ == "__main__":
 
     from database_client import DatabaseClient
     database_client = DatabaseClient()
-    database_client.connect()
+    seamless_database_ip = config["seamless_database_ip"]
+    seamless_database_port = config["seamless_database_port"]
+    database_client.connect(seamless_database_ip, seamless_database_port)
 
     address = config["address"]
     port = int(config["port"])
@@ -468,7 +472,9 @@ if __name__ == "__main__":
             
             elif jtype == "generic":
                 if sub_backend == "singularity":
-                    raise NotImplementedError
+                    jh.SINGULARITY_IMAGE_FILE = jobhandler["singularity_image_file"]
+                    jh.CONDA_ENV_RUN_TRANSFORMATION_COMMAND = jobhandler["singularity_run_transformation_command"]
+                    jh.CONDA_ENV_MODIFY_COMMAND = jobhandler["singularity_env_modify_command"]
 
         jobhandlers.append(jh)
 

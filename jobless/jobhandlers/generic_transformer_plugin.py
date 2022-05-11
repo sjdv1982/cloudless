@@ -58,9 +58,9 @@ class GenericTransformerPlugin(TransformerPlugin):
         **kwargs
     ):
         self.filezones = copy.deepcopy(filezones)
-        assert os.path.exists(exported_conda_env_directory)
+        assert os.path.exists(exported_conda_env_directory), exported_conda_env_directory
         self.exported_conda_env_directory = exported_conda_env_directory
-        assert os.path.exists(temp_conda_env_directory)
+        assert os.path.exists(temp_conda_env_directory), temp_conda_env_directory
         self.temp_conda_env_directory = temp_conda_env_directory
         self.temp_conda_env_lifetime = float(temp_conda_env_lifetime)
         self.transformation_to_conda_env = {}
@@ -103,7 +103,7 @@ class GenericTransformerPlugin(TransformerPlugin):
                     env = os.environ.copy()            
                     self.prepare_conda_env_modify_env(env)
                     cmd = [self.CONDA_ENV_MODIFY_COMMAND, d, f.name]
-                    cmd2 = " ".join(cmd)     
+                    cmd2 = " ".join(cmd)  
                     print("conda env modify command:", cmd2)               
                     try:
                         subprocess.run(cmd2, shell=True, env=env)
@@ -158,6 +158,8 @@ Generic transformer error
             self._create_conda_env(conda_env, conda_buf)
         d = self._get_temp_conda_env_dir(conda_env)
         return {
+            "__checksum__": checksum.hex(),
+            "__generic__": True,
             "conda_env": conda_env,
             "temp_conda_env_dir": d,
             "filezones": self.filezones
@@ -171,6 +173,7 @@ Generic transformer error
 
 
 class GenericSingularityTransformerPlugin(GenericTransformerPlugin):
+    CONDA_ENV_MODIFY_COMMAND = None  #to be set from YAML
     def prepare_conda_env_modify_env(self, env):
         env["SEAMLESS_MINIMAL_SINGULARITY_IMAGE"] = self.SINGULARITY_IMAGE_FILE
 

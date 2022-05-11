@@ -17,7 +17,7 @@ jobhandlers:
   type: bash
 
   ## shell or slurm
-  backend: shell
+  backend: slurm
 
   ## where to execute job files. null => system temp dir
   job_tempdir: null
@@ -34,9 +34,21 @@ jobhandlers:
   ##  and written to a new file
   filezones: ["local"]
 
+  ## only for backend=slurm
+  ## extra header to pre-pend to the submitted bash script
+  ##  (after SBATCH -o, SBATCH -e and SBATCH --export=ALL)
+
+  slurm_extra_header: null
+
+
+  ## only for backend=slurm
+  ## how often to poll slurm (squeue -j) for job status
+
+  status_polling_interval: 2.0
+
 -
   type: bashdocker
-  backend: shell
+  backend: slurm
   job_tempdir: null
   filezones: ["local"]
 
@@ -44,61 +56,29 @@ jobhandlers:
   ## extra header to pre-pend to the submitted bash script
   ##  (after SBATCH -o, SBATCH -e and SBATCH --export=ALL)
 
-  # slurm_extra_header: null
+  slurm_extra_header: null
 
 
   ## only for backend=slurm
   ## how often to poll slurm (squeue -j) for job status
 
-  # status_polling_interval: 2.0
+  status_polling_interval: 2.0
 
 
-
--
-  type: generic
-  backend: shell
-  filezones: ["local"]
-
-  exported_conda_env_directory: /tmp/SEAMLESS-MINIMAL # make sure this directory exists, 
-  
-  # directory to store 
-  temp_conda_env_directory: /tmp/JOBLESS-CONDA-ENV # make sure this directory exists
-  temp_conda_env_lifetime: 3600
-
+  ## only for type=bashdocker or type=generic. Use Singularity to execute.
+  ## For type=bashdocker, only supported for backend=slurm
 
   sub_backend: singularity
-  singularity_image_file: /home/sjoerd/seamless-minimal.sif
-  singularity_env_modify_command: /home/sjoerd/data/seamless/docker/seamless-minimal/singularity/seamless-conda-env-modify
-  singularity_run_transformation_command: /home/sjoerd/data/seamless/docker/seamless-minimal/singularity/seamless-conda-env-run-transformation
 
 
-  ## only for backend=slurm
-  ## extra header to pre-pend to the submitted bash script
-  ##  (after SBATCH -o, SBATCH -e and SBATCH --export=ALL)
-
-  # slurm_extra_header: null
-
-
-  ## only for backend=slurm
-  ## how often to poll slurm (squeue -j) for job status
-
-  # status_polling_interval: 2.0
-
-
-  ## only for type=bashdocker/generic. Use Singularity to execute.
-  ## For now, type=bashdocker only supports backend=slurm
-
-  # sub_backend: singularity
-
-
-  ## only for sub_backend=singularity
+  ## only for sub_backend=singularity and type=bashdocker
   ## where are the images stored.
   ## e.g. Docker image 'rpbs/seamless'
   ##  must correspond to image file $singularity_image_dir/rpbs/seamless.sif
 
-  # singularity_image_dir: /mnt/singularity
+  singularity_image_dir: /home/sjoerd/singularity-images
 
-  ## only for sub_backend=singularity
+  ## only for sub_backend=singularity and type=bashdocker
   ## Command to execute a Singularity image
 
-  # singularity_exec: 'singularity exec'
+  singularity_exec: 'singularity exec'

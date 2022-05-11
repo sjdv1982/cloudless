@@ -3,6 +3,10 @@ address: 0.0.0.0
 
 port: 5533
 
+## how to connect to the Seamless database
+seamless_database_ip: localhost
+seamless_database_port: 5522
+
 ## how to identify ourselves to Seamless instances in communion
 ## "null" will generate a random communion_id
 communion_id: jobless
@@ -49,7 +53,7 @@ jobhandlers:
   # status_polling_interval: 2.0
 
 
-  ## only for type=docker. Use Singularity to execute.
+  ## only for type=bashdocker. Use Singularity to execute.
   ## For now, only supported for backend=slurm
 
   # sub_backend: singularity
@@ -58,7 +62,7 @@ jobhandlers:
   ## only for sub_backend=singularity
   ## where are the images stored.
   ## e.g. Docker image 'rpbs/seamless'
-  ##  must correspond to image file $singularity_image_dir/rpbs/seamless.simg
+  ##  must correspond to image file $singularity_image_dir/rpbs/seamless.sif
 
   # singularity_image_dir: /mnt/singularity
 
