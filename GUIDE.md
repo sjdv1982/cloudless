@@ -27,24 +27,11 @@ The minimal Docker image is for Jobless "generic" jobhandlers with sub_backend =
 
 The database needs to be stopped. After that, the directory can be simply deleted.
 
-## Setting up Jobless
+## Start jobless
 
-Like Cloudless, Jobless runs without containerization.
-Jobless configuration needs to be done in a .yaml file.
-See `/cloudless/jobless/tests/local.yaml` for a minimal example, where bash transformers and Docker transformers are run as jobs locally.
-Launch jobless with `python3 /cloudless/jobless/jobless.py jobless-config.yaml`
+Jobless is now a part of the seamless-tools Git repo (https://github.com/sjdv1982/seamless-tools).
+The current deployment of Cloudless at the RPBS uses "fat" graph-serving Seamless instances (i.e. they are able to do computation themselves), but that offload as much computation as possible to Jobless.
 
-### Testing Jobless
-
-- Start jobless
-- Delete the database (see above)
-- Make sure that the Docker images "ubuntu", "rpbs/seamless" and "rpbs/autodock" are available
-  as Docker or Singularity images in the place where the jobs will be run.
-- Go to `/cloudless/jobless/tests`
-- Launch a shell in a Seamless container with `seamless-bash`
-- Run the tests `bash.py`, `docker_.py` and `autodock.py` with python3.
-  See the .expected-output files in the same folder.
-  If the output contains instead `Local computation has been disabled for this Seamless instance` or `Environment power cannot be granted: 'docker'`, then the test has failed.
 
 ## Installation on remote nodes (if any)
 
