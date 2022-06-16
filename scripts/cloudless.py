@@ -1,4 +1,3 @@
-from logging import shutdown
 from aiohttp import web
 import aiohttp
 import asyncio
@@ -22,28 +21,33 @@ currdir = os.path.split(os.path.abspath(__file__))[0]  # /scripts
 
 cloudless_port = 3124
 
-if __name__ == "__main__":
-    serve_graph_command = sys.argv[1]  # e.g. "cloudless-devel-serve-graph-thin"
-    if len(sys.argv) > 2:
-        cloudless_port = int(sys.argv[2])
-
 rest_server = "http://localhost"
 update_server = "http://localhost" # still http, not ws!
 
 launch_threads = []
 
+graph_dir = None
+instances_dir = None
+
+default_status_file = "DEFAULT-webctx.seamless"
+
 def _load_services():
     global services
-    services = {}
-    for f in glob.glob("../graphs/*.seamless"):
-        if f.endswith("-status.seamless"):
+    services = {}    
+    if not os.path.exists("{}/{}".format(graph_dir, default_status_file)):
+        raise Exception("""The graphs dir does not contain DEFAULT-webctx.seamless. 
+This graph must be defined. You will probably want to copy it from /seamless/graphs/status-visualization.seamless
+and do seamless-add-zip /seamless/graphs/status-visualization.zip""")
+    for f in glob.glob("{}/*.seamless".format(graph_dir)):
+        if f.endswith("-webctx.seamless"):
             continue
         service_dir, service_file = os.path.split(f)
         service_name = os.path.splitext(service_file)[0]
-        service_status_file = service_name + "-status.seamless"
+        service_status_file = service_name + "-webctx.seamless"
         if not os.path.exists(os.path.join(service_dir, service_status_file)):
-            service_status_file = "DEFAULT-status.seamless"
+            service_status_file = default_status_file
         services[service_name] = service_dir, service_file, service_status_file
+        print(service_name, service_dir, service_file, service_status_file)
 
 async def load_services(req):
     data = await req.post()
@@ -68,9 +72,11 @@ class Instance:
     complete = True
     container = None
     service_name = None
+    custom_status_graph = False
     proxy_websocket = None
     temp_dir = None
     last_request_time = None
+    error = False
 
     def __init__(self, update_port, rest_port):
         self.update_port = update_port
@@ -143,6 +149,9 @@ async def connect_instance(req):
 
     inst = Instance(update_port, rest_port)
     inst.service_name = service_name
+    status_file = services.get(service_name, ("","", default_status_file))[2]
+    custom_status_graph = (status_file != default_status_file)
+    inst.custom_status_graph = custom_status_graph
     instances[instance] = inst
     return web.Response(status=200)
 
@@ -217,23 +226,48 @@ def launch(instance, service_name, existing_graph=None):
     with open(os.path.join(temp_dir.name, "status-graph.seamless"), "w") as f:
         f.write(status_graph)
     with open(icicle.get_graph_output_file(instance, service_name), "w") as f:
-        f.write(graph)        
-    launch_command = os.path.abspath("../docker/commands/{}".format(serve_graph_command))
+        f.write(graph) 
+    launch_command = "seamless-serve-graph --database"  # NOT trusted, so no Docker    
     container = "cloudless-{}".format(instance)
+    if with_communion:
+        launch_command += " --communion"
+        launch_command += " --communion_id {}".format(container)
+    if no_fat:
+        launch_command += " --ncores 0"
     cmd = """
-    cd {} && {} {} graph.seamless --status-graph status-graph.seamless
+    cd {} && \
+    {} graph.seamless --status-graph status-graph.seamless
+    docker port {}
     """.format(
         temp_dir.name,
         launch_command, container
     )
-    err, output = subprocess.getstatusoutput(cmd)
+    
+    env = os.environ.copy()
+    env["SEAMLESS_DOCKER_CONTAINER_NAME"] = container
+    proc = subprocess.run(cmd, 
+        stdout=subprocess.PIPE, 
+        stderr=subprocess.PIPE, 
+        shell=True,
+        env=env
+    )
+    err = proc.returncode
+    output = ""
+    try:
+        output += proc.stdout.decode()
+    except Exception:
+        pass
+    try:
+        output += "Standard error\n\n" + proc.stderr.decode()
+    except Exception:
+        pass
     if err:
         msg = "Launch output:\n{}\n{}".format(err, output)
         ininst.error = True
         ininst.error_message = msg
         return
     else:
-        logfile = "../instances/{0}.log".format(container)
+        logfile = "{}/{}.log".format(instances_dir, container)
         cmd = "cd {} && docker attach {} > {} 2>&1"
         container_logger = subprocess.Popen(
             cmd.format(service_dir, container, logfile),
@@ -244,14 +278,15 @@ def launch(instance, service_name, existing_graph=None):
         except subprocess.TimeoutExpired:
             pass
         if container_logger.returncode is not None:
-            output = output.strip()
-            if len(output):
-                output = "***Docker launch output***\n" + output + "\n\n"
+            output0 = output.strip()
+            output = "***Docker return code***\n" + str(container_logger.returncode) + "\n\n"
+            if len(output0):
+                output += "***Docker launch output***\n" + output0 + "\n\n"
             logfile2 = os.path.join(service_dir, logfile)
             if os.path.exists(logfile2):
                 output += "***Container logfile***\n"
                 logcontent = open(logfile2).read().strip()
-                if logcontent == "You cannot attach to a stopped container, start it first":
+                if logcontent == "You cannot attach to a stopped container, start it first" or not len(logcontent):
                     err2, logcontent2 = subprocess.getstatusoutput(
                         "cd {} && docker logs {}".format(service_dir, container)
                     )
@@ -293,6 +328,9 @@ def launch(instance, service_name, existing_graph=None):
     inst.container = container
     inst.service_dir = service_dir
     inst.service_name = service_name
+    status_file = services.get(service_name, ("","", default_status_file))[2]
+    custom_status_graph = (status_file != default_status_file)
+    inst.custom_status_graph = custom_status_graph
     inst.container_logger = container_logger
     inst.temp_dir = temp_dir
     instances[instance] = inst
@@ -309,6 +347,9 @@ def launch_instance(service, *, instance=None, existing_graph=None):
         assert existing_graph is not None
     ininst = IncompleteInstance()
     ininst.service_name = service
+    status_file = services.get(service, ("","", default_status_file))[2]
+    custom_status_graph = (status_file != default_status_file)
+    ininst.custom_status_graph = custom_status_graph
     instances[instance] = ininst
     t = threading.Thread(
         target=launch,
@@ -357,7 +398,7 @@ def stop_container(inst):
             inst.container_logger.communicate(timeout=5)
         except:
             traceback.print_exc()
-        os.system("rm -f ../instances/{0}.log".format(container))
+        os.system("rm -f {}/{}.log".format(instances_dir, container))
         os.chdir(cwd)
 
 
@@ -452,6 +493,8 @@ async def admin_overview(req):
         go_link="../instance/{}/".format(instance)
         cgo_link = "<a href='{}'>Go to instance</a>".format(go_link)
         status_link="../instance/{}/status/".format(instance)
+        if inst.custom_status_graph:
+            status_link += "status.html" 
         cstatus_link = "<a href='{}'>Go to status</a>".format(status_link)
         msg = "Kill instance" if container else "Disconnect from instance"
         ckill_form = kill_form.format(instance, msg)
@@ -460,17 +503,25 @@ async def admin_overview(req):
         )
         instance_txt += "    " + s + "\n"
     ice_instance_txt = ""
-    for filename in sorted(glob.glob("../instances/*-*.seamless")):
+    for filename in sorted(glob.glob("{}/*-*.seamless".format(instances_dir))):
+        instance = None
+        filename2 = os.path.split(filename)[1]
         try:
-            service_name, instance = re.match("\.\./instances/(.*)-(.*)\.seamless", filename).groups()
+            service_name, instance = re.match("(.*)-(.*)\.seamless", filename2).groups()
             instance = int(instance)
-        except:
+        except Exception:
             pass
+        if not isinstance(instance, int):
+            continue
         if instance in instances:
             continue
         go_link="../instance/{}/".format(instance)
         cgo_link = "<a href='{}'>Go to instance</a>".format(go_link)
         status_link="../instance/{}/status/".format(instance)
+        status_file = services.get(service_name, ("","", default_status_file))[2]
+        custom_status_graph = (status_file != default_status_file)
+        if custom_status_graph:
+            status_link += "status.html" 
         cstatus_link = "<a href='{}'>Go to status</a>".format(status_link)
         s = "<tr><th>{}</th><th>{}</th><th>{}</th><th>{}</th></tr>".format(
             instance, service_name, cgo_link, cstatus_link
@@ -542,11 +593,29 @@ async def kill_inactive_instances(timeout):
 reverse_proxy_module.launch_instance = launch_instance
 
 if __name__ == "__main__":
-    os.chdir(currdir)
+    import asyncio
+    loop = asyncio.get_event_loop()
+
+    graph_dir = sys.argv[1]
+    assert os.path.isdir(graph_dir)
+
+    instances_dir = sys.argv[2]
+    assert os.path.isdir(instances_dir)
+
     _load_services()
     icicle.rest_server = rest_server
     icicle.instances = instances
     icicle.currdir = currdir
+    icicle.instances_dir = instances_dir
+    
+    with_communion = False
+    no_fat = False
+    if os.environ.get("CLOUDLESS_WITH_COMMUNION"):
+        with_communion = True
+    if os.environ.get("CLOUDLESS_NO_FAT"):
+        assert with_communion
+        no_fat = True
+
     app = web.Application()
     app.router.add_route('GET','/', redirect)
     app.router.add_route('GET','/index.html', main_page)
@@ -586,14 +655,15 @@ if __name__ == "__main__":
                 continue
             print("Killing instance", instance)
             try:
-                icicle.unsnoop(instance)
+                icicle.unsnoop(instance)                
                 stop_container(inst)
-            except:
+            except Exception:
                 traceback.print_exc()
-        await inactive_instance_killer
+        await kill_inactive_instances(10*60)
+        while len(icicle.dead_snoopers):
+            await icicle.dead_snoopers[0].runner
+    
     RUNNING = True
-    inactive_instance_killer = asyncio.ensure_future(kill_inactive_instances(10*60))
     app.on_shutdown.append(on_shutdown)
     web.run_app(app,port=cloudless_port)
-
-   
+    

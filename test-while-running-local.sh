@@ -2,6 +2,9 @@
 
 set -u -e
 
+echo TODO
+exit
+
 bridge_ip=$(docker network inspect bridge \
   | python3 -c '''
 import json, sys

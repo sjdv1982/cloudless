@@ -1,3 +1,5 @@
+# TODO: adapt seamless-jobslave so that this script is accommodated as params...
+
 set -u -e
 
 # - Seamless has access to the Docker daemon, so it can launch its own Docker
@@ -16,7 +18,9 @@ docker run \
   --detach \
   --name $name \
   -e "SEAMLESS_DATABASE_IP="$database_host \
+  -e SEAMLESS_DATABASE_PORT=$SEAMLESS_DATABASE_PORT \
   -e SEAMLESS_COMMUNION_OUTGOING_IP=0.0.0.0 \
+  -e SEAMLESS_COMMUNION_OUTGOING_PORT=8602 \
   --expose 8602 \
   -P \
   -v /tmp:/tmp \
@@ -24,4 +28,4 @@ docker run \
   --group-add $(getent group docker | cut -d: -f3) \
   -u jovyan \
   rpbs/seamless python3 -u /home/jovyan/seamless-scripts/jobslave.py \
-    --communion_id $name $*
+    --database --communion_id $name $*

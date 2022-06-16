@@ -13,14 +13,15 @@ rest_server = None # to be set by importing module
 instances = None # to be set by importing module
 instances = None # to be set by importing module
 currdir = None # to be set by importing module
+instances_dir = None # to be set by importing module
 
 def get_graph_output_file(instance, service_name):
-    fname = "../instances/{}-{}.seamless".format(service_name, instance)
+    fname = "{}/{}-{}.seamless".format(instances_dir, service_name, instance)
     fname2 = os.path.join(currdir, fname)
     return fname2
 
 def get_graph(instance):
-    pat = "../instances/*-{}.seamless".format(instance)
+    pat = "{}/*-{}.seamless".format(instances_dir, instance)
     pat2 = os.path.join(currdir, pat)
     filenames = sorted(glob.glob(pat2))
     if len(filenames):
@@ -53,7 +54,7 @@ class Snooper:
                         continue
                     port = inst.rest_port
                     url = "{}:{}/status/graph".format(rest_server, port)
-                async with session.get(url) as resp:
+                async with session.get(url,timeout=self.delay) as resp:
                     if resp.status != 200:
                         continue
                     graph = await resp.text()
@@ -63,10 +64,11 @@ class Snooper:
                     print("WRITE", self.instance)
                     with open(fname, "w") as f:
                         f.write(graph)
-
+        dead_snoopers.remove(self)
 
 
 snoopers = {}
+dead_snoopers = []
 def snoop(instance, service_name, delay):
     assert instance not in snoopers
     snooper = Snooper(instance, service_name, delay)
@@ -77,3 +79,4 @@ def unsnoop(instance):
         return
     snooper = snoopers.pop(instance)
     snooper.running = False
+    dead_snoopers.append(snooper)

@@ -27,16 +27,21 @@ def get_ephemeral_port(name):
 
 
 def start_jobslave(name,remote, master_ip):
+    
     if remote:
         cmd = "{}/cloudless-jobslave-remote {} {}".format(docker_cmd_dir,name, master_ip)
     else:
         cmd = "{}/cloudless-jobslave {}".format(docker_cmd_dir,name)
+    
+    # TODO: adapt seamless-jobslave so that cloudless-jobslaveX is accommodated as params...
+    # cmd = "seamless-jobslave {} --database".format(name)
+    
     err, output = subprocess.getstatusoutput(cmd)
     if err != 0:
         print(output, file=sys.stderr)
         raise RuntimeError("Error code {}".format(err))
 
-def main(nslaves, name_template, remote, ip, master_ip):
+def main(nslaves, name_template, remote, ip, master_ip):    
     if not remote:
         ip = get_bridge_ip()
     var = ""

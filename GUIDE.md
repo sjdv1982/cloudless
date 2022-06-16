@@ -1,7 +1,5 @@
 # Installation guide
 
-TODO: make SEAMLESS_DATABASE_IP configurable (argument for cloudless-serve-graph-XXX like in cloudless-jobslave-remote). !!!Add a second value for seamless-conda-env-run-transformation !!!
-
 # A. First installation steps
 
 ## Installation of the Cloudless master
@@ -26,6 +24,7 @@ The minimal Docker image is for Jobless "generic" jobhandlers with sub_backend =
 ### How to delete your database
 
 The database needs to be stopped. After that, the directory can be simply deleted.
+Alternatively, you can use seamless-delete-database-from-log to delete specific keys.
 
 ## Start jobless
 
@@ -85,6 +84,8 @@ Do Ctrl-C in the first terminal, type `exit` in the second.
 See "testing jobless".
 
 ### Test master-to-master Seamless-to-Seamless communion, with Docker bridge networking.
+
+OUTDATED. NEEDS TO BE ADAPTED.
 
 The first test is useful to see if Docker bridge networking is working properly.
 
@@ -200,6 +201,8 @@ For both the master and the node, make sure that the bridge network can reach th
 
 ### Test master-to-node Seamless-to-Seamless communion, with Docker bridge networking.
 
+MIGHT BE OUTDATED. NEEDS TO BE RE-TESTED.
+
 - On the node, do:
     - `cd $CLOUDLESSDIR`
     - `docker/commands/cloudless-jobslave-remote jobslave-container $masterIP && docker attach jobslave-container`
@@ -300,6 +303,9 @@ If not, you may want to go to section E first.
 
 ### Basic fat graph serving (no jobslaves), with host networking:
 
+OUTDATED. NEEDS TO BE ADAPTED.
+CAN BE DONE WITH BASIC SEAMLESS COMMANDS
+
 Open three terminals on the master. In the first terminal, do the following:
 
 ```bash
@@ -331,6 +337,10 @@ Again, this should reveal the web form of the test service.
 To terminate, do Ctrl-D in the first terminal, Ctrl-C in the second.
 
 ### Basic fat graph serving (no jobslaves), with normal networking (bridge network):
+
+OUTDATED. NEEDS TO BE ADAPTED.
+CAN BE DONE WITH BASIC SEAMLESS COMMANDS
+
   ```bash
   cd $CLOUDLESSDIR/graphs
   ../docker/test-commands/fat TEST-FAT testgraph.seamless
@@ -353,6 +363,10 @@ To terminate, do Ctrl-D in the first terminal, Ctrl-C in the second.
   ...
 
 ### Thin graph serving (with local jobslaves)
+
+OUTDATED. NEEDS TO BE ADAPTED.
+CAN BE DONE WITH BASIC SEAMLESS COMMANDS
+
 See test.sh, test-while-running-local.sh, test-while-running-local2.sh.
 
 ## Browser tests
