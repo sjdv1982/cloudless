@@ -10,6 +10,9 @@ fi
 
 set -u -e
 
+echo $CLOUDLESS_GRAPHS_DIR
+echo $CLOUDLESS_INSTANCES_DIR
+
 export SEAMLESS_DOCKER_PUBLISH_SHARESERVER_PORTS='--detach --expose 5813 --expose 5138 -P'
 
 dummy=$CLOUDLESS_NODES
@@ -39,7 +42,7 @@ export CLOUDLESS_WITH_COMMUNION=1
 export CLOUDLESS_NO_FAT=1
 echo 'Starting up Cloudless web server...'
 set +e
-python3 -u scripts/cloudless.py $*
+python3 -u scripts/cloudless.py $CLOUDLESS_GRAPHS_DIR $CLOUDLESS_INSTANCES_DIR $*
 
 if [ $nslaves -gt 0 ]; then
     for node in $nodes; do

@@ -1,9 +1,9 @@
 set -u -e
 
-[ ! -d $CLOUDLESSDIR/instances ] && mkdir $CLOUDLESSDIR/instances
-[ ! -d $CLOUDLESSDIR/graphs ] && mkdir $CLOUDLESSDIR/graphs
+[ ! -d $CLOUDLESS_INSTANCES_DIR ] && mkdir $CLOUDLESS_INSTANCES_DIR
+[ ! -d $CLOUDLESS_GRAPHS_DIR ] && mkdir $CLOUDLESS_GRAPHS_DIR
 
-cd $CLOUDLESSDIR/graphs
+cd $CLOUDLESS_GRAPHS_DIR
 container=$(docker create rpbs/seamless)
 
 # Run the following to update the status-visualization from the Seamless Docker image

@@ -16,6 +16,10 @@ The minimal Docker image is for Jobless "generic" jobhandlers with sub_backend =
 ...
 
 - Define $CLOUDLESSDIR in your .bashrc
+  Also define $CLOUDLESS_GRAPHS_DIR 
+  (where you will store the service template graphs) 
+  and $CLOUDLESS_INSTANCES_DIR 
+  (where you will store the service instance graphs) 
 
 ## Setup of the database adapter
 
