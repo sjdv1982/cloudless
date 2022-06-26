@@ -8,7 +8,7 @@ The minimal Docker image is for Jobless "generic" jobhandlers with sub_backend =
 
 
 - Create a new Python environment with seamless-cli and silk  in it:
-`conda create -n cloudless -c rpbs -c conda-forge python seamless-cli silk -y && conda activate cloudless`
+`conda create -n cloudless -c rpbs -c conda-forge python==3.8 seamless-cli silk -y && conda activate cloudless`
 
 - Install Cloudless requirements with `pip install -r requirements.txt`.
 
