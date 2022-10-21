@@ -34,7 +34,7 @@ map $http_upgrade $connection_upgrade {
 }
 ```
 
-- Add "cloudless.conf" to /etc/nginx.
+- Add "cloudless.conf" to /etc/nginx. It is assumed that NGINX runs inside a Docker container connected the Docker network. If it runs on bare metal, change the IP address 172.17.0.1 in "cloudless.conf" to localhost or to your custom Docker network IP.
 
 - Set up the server configuration.
 
