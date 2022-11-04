@@ -4,7 +4,7 @@ Installation and configuration of Cloudless under nginx
 NOTE: Seamless does not use anything like CGI.
 It receives HTTP user data over its REST API, either from the browser (Javascript)
 or from command line. In fact, Seamless cannot tell the difference between requests
-from the browser or from command line,
+from the browser or from command line.
 
 Seamless has a very liberal limit (1 GB) on max request sizes, allowing the upload
 of large files. In contrast, nginx enforces a limit of 1 MB by default.
@@ -34,7 +34,7 @@ map $http_upgrade $connection_upgrade {
 }
 ```
 
-- If necessary, adapt the `cloudless.conf`. Note that the existing `nginx.conf` assumes NGINX that runs inside a Docker container connected to the default Docker network with IP 172.17.0.1. If it runs on bare metal, change the IP address 172.17.0.1 in "cloudless.conf" to "localhost". 
+- If necessary, adapt the `cloudless.conf`. Note that the existing conf assumes that nginx runs inside a Docker container connected to the default Docker network with IP 172.17.0.1. If it runs on bare metal, change the IP address to "localhost". 
 
 - Add "cloudless.conf" to /etc/nginx. 
 
