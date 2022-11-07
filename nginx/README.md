@@ -58,3 +58,5 @@ You may need to adapt it, adding HTTPS/SSL etc.
 Add a soft-link to it in `/etc/nginx/sites-enabled`.
 
 - Restart nginx
+
+NOTE: The above setup exposes all of Cloudless, including the admin interface. You may want to setup some kind of authentication within nginx to prevent that.

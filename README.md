@@ -74,8 +74,9 @@ Step 2. can be omitted if your workflow takes huge datasets as input. In that ca
 
 ## Nginx setup
 
-This is necessary only if you want to run a public Cloudless server, available under port 80.
-First, start up Cloudless. Then, follow the instructions in `nginx/README.md`
+Cloudless runs under under port 3124 andlistens only for local connections, so you can't connect to it from another machine.
+If you want to run a public Cloudless server, you want to accept public connections, coming in under port 80, potentially using HTTPS. 
+To set that up, you need a reverse proxy, listening on port 80 and redirecting traffic to port 3124. This can be done using Nginx, follow the instructions in `nginx/README.md` .
 
 ## Cloudless-to-Cloudless communication
 

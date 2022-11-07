@@ -665,5 +665,5 @@ if __name__ == "__main__":
     
     RUNNING = True
     app.on_shutdown.append(on_shutdown)
-    web.run_app(app,port=cloudless_port)
+    web.run_app(app,host="localhost", port=cloudless_port)
     
