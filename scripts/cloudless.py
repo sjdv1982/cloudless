@@ -610,9 +610,21 @@ if __name__ == "__main__":
     
     with_communion = False
     no_fat = False
-    if os.environ.get("CLOUDLESS_WITH_COMMUNION"):
+
+    def read_environ_flag(varname):
+        flag = os.environ.get(varname)
+        if flag is None or flag == "":
+            return False
+        try:
+            flag = int(flag)
+            if flag == 0:
+                return False
+            return True
+        except Exception:
+            return True
+    if read_environ_flag("CLOUDLESS_WITH_COMMUNION"):
         with_communion = True
-    if os.environ.get("CLOUDLESS_NO_FAT"):
+    if read_environ_flag("CLOUDLESS_NO_FAT"):
         assert with_communion
         no_fat = True
 
