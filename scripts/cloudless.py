@@ -684,11 +684,12 @@ if __name__ == "__main__":
                 stop_container(inst)
             except Exception:
                 traceback.print_exc()
-        await kill_inactive_instances(10*60)
+        await inactive_instance_killer
         while len(icicle.dead_snoopers):
             await icicle.dead_snoopers[0].runner
     
     RUNNING = True
     app.on_shutdown.append(on_shutdown)
+    inactive_instance_killer = asyncio.ensure_future(kill_inactive_instances(10*60))
     web.run_app(app,host="localhost", port=cloudless_port)
     
