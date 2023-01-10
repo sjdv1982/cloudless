@@ -21,6 +21,8 @@ currdir = os.path.split(os.path.abspath(__file__))[0]  # /scripts
 
 cloudless_port = 3124
 
+INACTIVE_TIMEOUT = 10*60
+
 rest_server = "http://localhost"
 update_server = "http://localhost" # still http, not ws!
 
@@ -355,6 +357,7 @@ def launch_instance(service, *, instance=None, existing_graph=None):
     custom_status_graph = (status_file != default_status_file)
     ininst.custom_status_graph = custom_status_graph
     instances[instance] = ininst
+    kill_inactive_instances(INACTIVE_TIMEOUT)
     t = threading.Thread(
         target=launch,
         args=(instance, service),
@@ -399,10 +402,11 @@ def stop_container(inst):
         subprocess.getstatusoutput("docker kill --signal=SIGINT {0} && docker rm {0}".format(container))
         subprocess.getstatusoutput("docker inspect {0} && docker kill --signal=SIGHUP {0} && docker rm {0}".format(container))
         subprocess.getstatusoutput("docker inspect {0} && docker stop {0} && docker rm {0}".format(container))
-        try:
-            inst.container_logger.communicate(timeout=5)
-        except:
-            traceback.print_exc()
+        if hasattr(inst, "container_logger"):
+            try:
+                inst.container_logger.communicate(timeout=5)
+            except:
+                traceback.print_exc()
         if hasattr(inst, "service_dir"):
             os.system("rm -f {}/{}.log".format(instances_dir, container))
             os.chdir(cwd)
@@ -581,27 +585,25 @@ async def main_page(req):
 async def redirect(req):
     raise web.HTTPFound('/index.html')
 
-RUNNING = False
-async def kill_inactive_instances(timeout):
+def kill_inactive_instances(timeout):
     # timeout in secs
-    while RUNNING:
-        await asyncio.sleep(2)
-        t = time.time()
-        for instance_name, inst in list(instances.items()):
-            try:
-                if isinstance(inst, IncompleteInstance):
-                    if inst.container is not None and inst.creation_time + timeout < t:
-                        instances.pop(instance_name)
-                        stop_container(inst)
-                        print("CANCEL", instance_name)         
-                    continue
-                if inst.container is not None and inst.last_request_time + timeout < t:
+    t = time.time()
+    print(t)
+    for instance_name, inst in list(instances.items()):
+        try:
+            if isinstance(inst, IncompleteInstance):
+                if inst.container is not None and inst.creation_time + timeout < t:
                     instances.pop(instance_name)
-                    icicle.unsnoop(instance_name)
                     stop_container(inst)
-                    print("KILL", instance_name)         
-            except Exception:
-                traceback.print_exc()
+                    print("CANCEL", instance_name)         
+                continue
+            if inst.container is not None and inst.last_request_time + timeout < t:
+                instances.pop(instance_name)
+                icicle.unsnoop(instance_name)
+                stop_container(inst)
+                print("KILL", instance_name)         
+        except Exception:
+            traceback.print_exc()
                 
 reverse_proxy_module.launch_instance = launch_instance
 
@@ -664,9 +666,7 @@ if __name__ == "__main__":
     app.router.add_route('GET','/connect_from_cloudless', connect_from_cloudless)
 
     async def on_shutdown(app):
-        global RUNNING
         print("Shutting down...")
-        RUNNING = False
         shutdown_time = time.time() + 20
         for t in launch_threads:
             if t.is_alive():
@@ -684,12 +684,9 @@ if __name__ == "__main__":
                 stop_container(inst)
             except Exception:
                 traceback.print_exc()
-        await inactive_instance_killer
         while len(icicle.dead_snoopers):
             await icicle.dead_snoopers[0].runner
     
-    RUNNING = True
     app.on_shutdown.append(on_shutdown)
-    inactive_instance_killer = asyncio.ensure_future(kill_inactive_instances(10*60))
     web.run_app(app,host="localhost", port=cloudless_port)
     
