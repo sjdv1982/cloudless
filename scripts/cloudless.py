@@ -588,18 +588,21 @@ async def kill_inactive_instances(timeout):
         await asyncio.sleep(2)
         t = time.time()
         for instance_name, inst in list(instances.items()):
-            if isinstance(inst, IncompleteInstance):
-                if inst.container is not None and inst.creation_time + timeout < t:
+            try:
+                if isinstance(inst, IncompleteInstance):
+                    if inst.container is not None and inst.creation_time + timeout < t:
+                        instances.pop(instance_name)
+                        stop_container(inst)
+                        print("CANCEL", instance_name)         
+                    continue
+                if inst.container is not None and inst.last_request_time + timeout < t:
                     instances.pop(instance_name)
-                    stop_container(inst)       
-                    print("CANCEL", instance_name)         
-                continue
-            if inst.container is not None and inst.last_request_time + timeout < t:
-                instances.pop(instance_name)
-                icicle.unsnoop(instance_name)
-                stop_container(inst)       
-                print("KILL", instance_name)         
-
+                    icicle.unsnoop(instance_name)
+                    stop_container(inst)
+                    print("KILL", instance_name)         
+            except Exception:
+                traceback.print_exc()
+                
 reverse_proxy_module.launch_instance = launch_instance
 
 if __name__ == "__main__":
