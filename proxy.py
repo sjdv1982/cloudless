@@ -191,10 +191,15 @@ async def _serve_myself_message(
         try:
             cookies = requestdata["cookies"]
             tail = requestdata["tail"]
-            instance = int(requestdata["instance"])
+            instance = requestdata["instance"]
         except (KeyError, ValueError):
             err = "Malformatted HTTP request data"
+            import traceback; traceback.print_exc()
             return {"id": id, "status": "400", "body": err}
+        try:
+            instance = int(instance)
+        except ValueError:
+            pass
         if instance not in instances:
             err = "Unknown Seamless instance '{}'".format(instance)
             return {"id": id, "status": "400", "body": err}
