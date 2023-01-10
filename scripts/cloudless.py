@@ -89,6 +89,8 @@ class IncompleteInstance:
     service_name = None
     error = False
     error_message = None
+    container = None
+    creation_time = None
 
 instances = {
     #1: Instance(32876, 32875)
@@ -229,6 +231,7 @@ def launch(instance, service_name, existing_graph=None):
         f.write(graph) 
     launch_command = "seamless-serve-graph --database"  # NOT trusted, so no Docker    
     container = "cloudless-{}".format(instance)
+    ininst.container = container
     if with_communion:
         launch_command += " --communion"
         launch_command += " --communion_id {}".format(container)
@@ -346,6 +349,7 @@ def launch_instance(service, *, instance=None, existing_graph=None):
     else:
         assert existing_graph is not None
     ininst = IncompleteInstance()
+    ininst.creation_time = time.time()
     ininst.service_name = service
     status_file = services.get(service, ("","", default_status_file))[2]
     custom_status_graph = (status_file != default_status_file)
@@ -390,7 +394,8 @@ def stop_container(inst):
     container = inst.container
     cwd = os.getcwd()
     if container is not None:
-        os.chdir(inst.service_dir)
+        if hasattr(inst, "service_dir"):
+            os.chdir(inst.service_dir)
         subprocess.getstatusoutput("docker kill --signal=SIGINT {0} && docker rm {0}".format(container))
         subprocess.getstatusoutput("docker inspect {0} && docker kill --signal=SIGHUP {0} && docker rm {0}".format(container))
         subprocess.getstatusoutput("docker inspect {0} && docker stop {0} && docker rm {0}".format(container))
@@ -398,8 +403,9 @@ def stop_container(inst):
             inst.container_logger.communicate(timeout=5)
         except:
             traceback.print_exc()
-        os.system("rm -f {}/{}.log".format(instances_dir, container))
-        os.chdir(cwd)
+        if hasattr(inst, "service_dir"):
+            os.system("rm -f {}/{}.log".format(instances_dir, container))
+            os.chdir(cwd)
 
 
 async def kill_instance(req):
@@ -583,6 +589,10 @@ async def kill_inactive_instances(timeout):
         t = time.time()
         for instance_name, inst in list(instances.items()):
             if isinstance(inst, IncompleteInstance):
+                if inst.container is not None and inst.creation_time + timeout < t:
+                    instances.pop(instance_name)
+                    stop_container(inst)       
+                    print("CANCEL", instance_name)         
                 continue
             if inst.container is not None and inst.last_request_time + timeout < t:
                 instances.pop(instance_name)
