@@ -1,0 +1,9 @@
+#!/bin/bash
+
+set -u -e
+
+currdir=`python3 -c 'import os,sys;print(os.path.dirname(os.path.realpath(sys.argv[1])))' $0`
+source $currdir/cloudless-fill-environment-variables
+
+echo 'Starting up Cloudless web server...'
+python3 -u scripts/cloudless.py $CLOUDLESS_DEPLOYMENT_DIR/graphs $CLOUDLESS_DEPLOYMENT_DIR/instances $CLOUDLESS_IP

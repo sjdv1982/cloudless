@@ -1,0 +1,10 @@
+#!/bin/bash
+
+set -u -e
+
+zipfile=$1
+
+currdir=`python3 -c 'import os,sys;print(os.path.dirname(os.path.realpath(sys.argv[1])))' $0`
+source $currdir/cloudless-fill-environment-variables
+
+seamless-upload-zip $zipfile

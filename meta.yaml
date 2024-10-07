@@ -1,0 +1,31 @@
+{% set name = "cloudless" %}
+{% set version = "0.2" %}
+
+package:
+  name: "{{ name|lower }}"
+  version: "{{ version }}"
+
+build:
+  noarch: python
+  number: 1
+
+source:
+  path: .
+
+requirements:
+  build:
+    - python {{ python }}
+    - setuptools
+  run:
+    - python>=3.10
+    - aiohttp
+    - websockets
+    - ruamel.yaml
+    - numpy
+    - psutil
+    - requests
+about:
+  home: https://github.com/sjdv1982/cloudless.git
+  license: MIT
+  license_family: MIT
+  summary: Web framework on top of Seamless workflows.

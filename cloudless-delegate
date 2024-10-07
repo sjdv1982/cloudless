@@ -1,0 +1,9 @@
+#!/bin/bash
+
+set -u -e
+assistant_name=$1
+
+currdir=`python3 -c 'import os,sys;print(os.path.dirname(os.path.realpath(sys.argv[1])))' $0`
+source $currdir/cloudless-fill-environment-variables
+
+seamless-delegate $assistant_name
