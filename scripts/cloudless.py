@@ -88,8 +88,10 @@ class IncompleteInstance:
     error = False
     error_message = None
     container = None
+    container_logger = None
     creation_time = None
     custom_status_graph = None
+    service_dir = None
 
 
 instances = {

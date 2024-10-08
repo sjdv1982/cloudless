@@ -26,11 +26,13 @@ Instances themselves (/instance/.../) are accessible to everyone, also for modif
 
 TODO: create rpbs/cloudless conda package.
 TODO: make a seamless-cloudless Docker compose script with rpbs/cloudless and rpbs/seamless-cli in it.
+The above will be an alternative installation.
 
 - Pull the Seamless Docker image (`docker pull rpbs/seamless`)
 
 - Create a new Python environment with seamless-cli in it:
-`conda create -n cloudless -c rpbs -c conda-forge seamless-cli -y && conda activate cloudless`
+`conda create -n cloudless -c rpbs -c conda-forge python=3.10 seamless-cli -y && conda activate cloudless`
+Alternatively, Cloudless can also run from the Seamless development conda environment.
 
 - Install Cloudless dependencies. They are currently in meta.yaml.
 
